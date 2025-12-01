@@ -8,7 +8,8 @@
       "Bash(dir /s /b \"c:\\Users\\ameli\\Documents\\HTML Prac\\DawnWheel\\static\")",
       "Bash(dir /b \"c:\\Users\\ameli\\Documents\\HTML Prac\\DawnWheel\")",
       "Bash(cat:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(dir /b \"c:\\Users\\ameli\\Documents\\HTML Prac\\DawnWheel\\src\\lib\")"
     ],
     "deny": [],
     "ask": []
