@@ -19,6 +19,9 @@
 	import fnafHallwaySfx from '$lib/fnaf2_hallway_sfx.ogg';
 	import fnafJumpscareSfx from '$lib/fnaf2_puppet_js.ogg';
 	import fnafJumpscareGif from '$lib/fnaf_jumpscare.gif';
+	import horrorStartSfx from '$lib/horror_start.ogg';
+	import horrorResultSfx from '$lib/horror_result.ogg';
+	import woodWheelSfx from '$lib/wood_wheel.ogg';
 
 	// Marionette scream SFX (random one plays before reset)
 	import mar01Sfx from '$lib/Mar01.ogg';
@@ -26,6 +29,12 @@
 	import mar03Sfx from '$lib/Mar03.ogg';
 	import mar04Sfx from '$lib/Mar04.ogg';
 	import mar05Sfx from '$lib/Mar05.ogg';
+
+	// Ghoul encounter assets
+	import ghoulImg from '$lib/ghoul.png';
+	import ghoulGif from '$lib/ghoul.gif';
+	import ghoulSfx from '$lib/ghoul.ogg';
+	import heartbeatSfx from '$lib/heartbeat.ogg';
 
 	// TODO: Import stores (once created)
 	// import { movies } from '$lib/stores/movies';
@@ -46,9 +55,11 @@
 	// ============================================================================
 
 	// Google Docs link state
-	let googleDocsLink = $state('');
+	const defaultGoogleDocsLink = 'https://docs.google.com/document/d/1-jO8mpKGzuZTN_JkLC-NhOJ1hAucKX_O3ETe_3ZXTHM/edit?usp=sharing';
+	let googleDocsLink = $state(defaultGoogleDocsLink);
 	let rememberLink = $state(false);
 	let isLinkLocked = $state(false);
+	let userHasChangedLink = $state(false); // Track if user has modified the link
 
 	// Theme settings modal state
 	let showThemeSettings = $state(false);
@@ -107,7 +118,8 @@
 		// Gas can properties
 		gasCanSizeInitial: 100, // Starting size in px
 		gasCanSizeMin: 20, // Minimum size in px
-		gasCanShrinkRate: 0.92, // 8% smaller each refuel
+		gasCanShrinkRate: 0.94, // 6% smaller each refuel (was 8%)
+		gasCanMinSizeThreshold: 10, // Stop shrinking after 10 refuels
 		gasCanOpacity: 0.6, // Base opacity
 
 		// Visual effects
@@ -133,6 +145,17 @@
 		jumpscarePopDuration: 100, // Fast pop-in (0.1 seconds)
 		jumpscareSitDuration: 1000, // Sit on screen (1 second)
 		fadeoutDuration: 1500, // Fade to black (1.5 seconds)
+
+		// Ghoul encounter settings
+		ghoulSpawnCheckInterval: 3000, // Check every 3 seconds
+		ghoulSpawnChance: 0.0167, // ~1.67% chance (1 per 3 minutes avg)
+		ghoulFindTime: 3000, // 3 seconds to hover
+		ghoulCountdownMin: 30, // 30 seconds min
+		ghoulCountdownMax: 40, // 40 seconds max
+		ghoulSizeInitial: 60, // Starting size (px) - smaller than before
+		ghoulSizeMin: 25, // Minimum size
+		ghoulShrinkRate: 0.93, // 7% smaller each encounter
+		ghoulOpacity: 0.5, // Less visible than gas can
 	};
 
 	// Haunted Mode state variables
@@ -170,6 +193,26 @@
 	// Audio State
 	let bgMusicTempo = $state(1.0); // Playback rate for tempo variation
 	let tempoVariationInterval: number;
+
+	// Ghoul encounter state
+	let ghoulActive = $state(false); // Is ghoul currently spawned?
+	let ghoulX = $state(0); // X position
+	let ghoulY = $state(0); // Y position
+	let ghoulSize = $state(hauntedConfig.ghoulSizeInitial);
+	let ghoulCountdown = $state(-1); // -1 = inactive
+	let ghoulHoverDuration = $state(0); // ms hovering
+	let ghoulHoverStartTime = 0; // timestamp
+	let isHoveringGhoul = $state(false); // hover state
+
+	let ghoulSpawnInterval: number; // spawn check interval
+	let ghoulCountdownInterval: number; // countdown timer
+	let ghoulHoverCheckInterval: number; // hover duration tracker
+
+	let heartbeatAudio: HTMLAudioElement; // heartbeat sfx
+	let ghoulJumpscareAudio: HTMLAudioElement; // ghoul jumpscare sfx
+
+	// Jumpscare type tracking
+	let currentJumpscareType = $state<'default' | 'ghoul'>('default');
 
 	// Horror intro state
 	let showHorrorIntro = $state(false);
@@ -321,6 +364,9 @@
 		}, 1000);
 	}
 
+	// Add a ref for the jumpscare gif
+	let jumpscareGifEl: HTMLImageElement | null = null;
+
 	function triggerJumpscare() {
 		console.log('Triggering jumpscare sequence');
 
@@ -343,6 +389,13 @@
 		jumpscarePhase = 'jumpscare';
 		jumpscareAnimationProgress = 0;
 
+		// Reset gif by changing src (forces restart)
+		if (jumpscareGifEl) {
+			const src = jumpscareGifEl.src;
+			jumpscareGifEl.src = '';
+			jumpscareGifEl.src = src;
+		}
+
 		const popStartTime = Date.now();
 		const popInterval = setInterval(() => {
 			const elapsed = Date.now() - popStartTime;
@@ -350,8 +403,14 @@
 
 			if (jumpscareAnimationProgress >= 1) {
 				clearInterval(popInterval);
-				// Phase 2: Sit on screen (1 second)
+				// Phase 2: Sit on screen for the exact gif duration
+				// If you know the gif duration (e.g. 1.2s), set it here
+				const gifDuration = 1200; // ms (adjust to match your gif length)
 				setTimeout(() => {
+					// Optionally, freeze the gif on last frame by replacing with a static image
+					// If you have a static PNG/JPG of the last frame, swap here:
+					// if (jumpscareGifEl) jumpscareGifEl.src = lastFrameImg;
+
 					// Phase 3: Play random marionette scream
 					jumpscarePhase = 'scream';
 					const randomScream = marionetteScreamAudios[Math.floor(Math.random() * marionetteScreamAudios.length)];
@@ -375,7 +434,7 @@
 							}, 300);
 						}
 					}, 16);
-				}, hauntedConfig.jumpscareSitDuration);
+				}, gifDuration);
 			}
 		}, 16); // ~60fps
 	}
@@ -394,6 +453,233 @@
 
 		// Restart haunted intro (delays game logic)
 		startHauntedIntro();
+	}
+
+	// Play horror start sound when entering haunted mode
+	function playHorrorStart() {
+		if (horrorStartAudio) {
+			horrorStartAudio.currentTime = 0;
+			horrorStartAudio.play().catch(() => {});
+		}
+	}
+
+	// ========================================================================
+	// GHOUL ENCOUNTER SYSTEM
+	// ========================================================================
+
+	// Start checking for ghoul spawns (called when haunted mode starts)
+	function startGhoulSpawnSystem() {
+		console.log('[GHOUL] Starting spawn system');
+
+		ghoulSpawnInterval = setInterval(() => {
+			if (horrorGamePaused || ghoulActive || showJumpscare) return;
+
+			// Random spawn chance (~1 per 3 minutes)
+			const roll = Math.random();
+			if (roll < hauntedConfig.ghoulSpawnChance) {
+				spawnGhoul();
+			}
+		}, hauntedConfig.ghoulSpawnCheckInterval);
+	}
+
+	function stopGhoulSpawnSystem() {
+		if (ghoulSpawnInterval) clearInterval(ghoulSpawnInterval);
+		despawnGhoul(); // Clean up any active ghoul
+	}
+
+	function spawnGhoul() {
+		console.log('[GHOUL] Spawning ghoul');
+
+		ghoulActive = true;
+		repositionGhoul();
+
+		// Play heartbeat sound
+		if (heartbeatAudio) {
+			heartbeatAudio.currentTime = 0;
+			heartbeatAudio.play().catch(() => {});
+		}
+
+		// Start countdown timer (30-40 seconds)
+		const countdownTime = Math.floor(
+			hauntedConfig.ghoulCountdownMin +
+			Math.random() * (hauntedConfig.ghoulCountdownMax - hauntedConfig.ghoulCountdownMin)
+		);
+		ghoulCountdown = countdownTime;
+
+		ghoulCountdownInterval = setInterval(() => {
+			if (horrorGamePaused) return;
+
+			ghoulCountdown--;
+
+			if (ghoulCountdown <= 0) {
+				clearInterval(ghoulCountdownInterval);
+				// Player failed to find ghoul - trigger jumpscare
+				triggerGhoulJumpscare();
+			}
+		}, 1000);
+	}
+
+	function repositionGhoul() {
+		// Similar to repositionGasCan - place away from cursor
+		const width = typeof window !== 'undefined' ? window.innerWidth : 800;
+		const height = typeof window !== 'undefined' ? window.innerHeight : 600;
+
+		const xRange = width * 0.15;  // Bigger zone than gas can (15%)
+		const yRange = height * 0.15;
+
+		const mouseX = Math.max(0, Math.min(cursorX, width));
+		const mouseY = Math.max(0, Math.min(cursorY, height));
+
+		const margin = 100;
+		const nearMinX = Math.max(margin, mouseX - xRange);
+		const nearMaxX = Math.min(width - margin, mouseX + xRange);
+		const nearMinY = Math.max(margin, mouseY - yRange);
+		const nearMaxY = Math.min(height - margin, mouseY + yRange);
+
+		let x, y;
+		let attempts = 0;
+		do {
+			x = margin + Math.random() * (width - margin * 2);
+			y = margin + Math.random() * (height - margin * 2);
+			attempts++;
+			if (attempts > 20) break;
+		} while (
+			x >= nearMinX && x <= nearMaxX &&
+			y >= nearMinY && y <= nearMaxY
+		);
+
+		ghoulX = x;
+		ghoulY = y;
+	}
+
+	function despawnGhoul() {
+		console.log('[GHOUL] Despawning ghoul');
+
+		ghoulActive = false;
+		ghoulCountdown = -1;
+		ghoulHoverDuration = 0;
+		isHoveringGhoul = false;
+
+		if (ghoulCountdownInterval) clearInterval(ghoulCountdownInterval);
+		if (ghoulHoverCheckInterval) clearInterval(ghoulHoverCheckInterval);
+		if (heartbeatAudio) heartbeatAudio.pause();
+	}
+
+	function onGhoulMouseEnter() {
+		console.log('[GHOUL] Mouse enter - starting hover timer');
+
+		isHoveringGhoul = true;
+		ghoulHoverStartTime = Date.now();
+
+		// Check hover duration every 100ms
+		ghoulHoverCheckInterval = setInterval(() => {
+			if (horrorGamePaused) return;
+
+			const elapsed = Date.now() - ghoulHoverStartTime;
+			ghoulHoverDuration = elapsed;
+
+			if (ghoulHoverDuration >= hauntedConfig.ghoulFindTime) {
+				// Success! Player found the ghoul
+				clearInterval(ghoulHoverCheckInterval);
+				ghoulFound();
+			}
+		}, 100);
+	}
+
+	function onGhoulMouseLeave() {
+		console.log('[GHOUL] Mouse leave - resetting hover timer');
+
+		isHoveringGhoul = false;
+		ghoulHoverDuration = 0;
+
+		if (ghoulHoverCheckInterval) {
+			clearInterval(ghoulHoverCheckInterval);
+		}
+	}
+
+	function ghoulFound() {
+		console.log('[GHOUL] Player successfully found ghoul!');
+
+		// Stop heartbeat
+		if (heartbeatAudio) heartbeatAudio.pause();
+
+		// Shrink ghoul for next encounter (progressive difficulty)
+		ghoulSize = Math.max(
+			hauntedConfig.ghoulSizeMin,
+			ghoulSize * hauntedConfig.ghoulShrinkRate
+		);
+
+		// Despawn and allow next spawn
+		despawnGhoul();
+	}
+
+	function triggerGhoulJumpscare() {
+		console.log('[GHOUL] Triggering ghoul jumpscare');
+
+		// Stop all horror audio
+		if (horrorBgAudio) horrorBgAudio.pause();
+		if (heartbeatAudio) heartbeatAudio.pause();
+		if (warningAudio) warningAudio.pause();
+
+		// Despawn ghoul
+		despawnGhoul();
+
+		// Set jumpscare type BEFORE showing overlay
+		currentJumpscareType = 'ghoul';
+
+		// Play ghoul jumpscare audio
+		if (ghoulJumpscareAudio) {
+			ghoulJumpscareAudio.currentTime = 0;
+			ghoulJumpscareAudio.play().catch(() => {});
+		}
+
+		// Show jumpscare overlay
+		showJumpscare = true;
+		jumpscarePhase = 'jumpscare';
+		jumpscareAnimationProgress = 0;
+
+		// Reset GIF to restart animation
+		if (jumpscareGifEl) {
+			const src = jumpscareGifEl.src;
+			jumpscareGifEl.src = '';
+			jumpscareGifEl.src = src;
+		}
+
+		// Phase 1: Fast pop-in (100ms)
+		const popStartTime = Date.now();
+		const popInterval = setInterval(() => {
+			const elapsed = Date.now() - popStartTime;
+			jumpscareAnimationProgress = Math.min(
+				elapsed / hauntedConfig.jumpscarePopDuration, 1
+			);
+
+			if (jumpscareAnimationProgress >= 1) {
+				clearInterval(popInterval);
+
+				// Phase 2: Display for ~16 seconds (audio duration)
+				const ghoulDisplayDuration = 16000;
+				setTimeout(() => {
+					// Phase 3: Fade to black
+					jumpscarePhase = 'fadeout';
+					const fadeStartTime = Date.now();
+					const fadeInterval = setInterval(() => {
+						const fadeElapsed = Date.now() - fadeStartTime;
+						const fadeProgress = fadeElapsed / hauntedConfig.fadeoutDuration;
+
+						if (fadeProgress >= 1) {
+							clearInterval(fadeInterval);
+
+							// Reset horror mode
+							setTimeout(() => {
+								// Reset to default jumpscare type
+								currentJumpscareType = 'default';
+								resetHorrorMode();
+							}, 300);
+						}
+					}, 16);
+				}, ghoulDisplayDuration);
+			}
+		}, 16); // ~60fps
 	}
 
 	// ========================================================================
@@ -468,11 +754,18 @@
 	function playVictory() {
 		console.log('Playing victory sound effect');
 
-		if (!sfxEnabled || !victoryEnabled || !victoryAudio) return;
+		if (!sfxEnabled || !victoryEnabled) return;
 
-		victoryAudio.currentTime = 0;
-		victoryAudio.volume = sfxVolume;
-		victoryAudio.play().catch(() => {
+		// Choose appropriate victory sound based on theme
+		const audioToPlay = selectedThemePreset === 'haunted'
+			? horrorResultAudio
+			: victoryAudio;
+
+		if (!audioToPlay) return;
+
+		audioToPlay.currentTime = 0;
+		audioToPlay.volume = sfxVolume;
+		audioToPlay.play().catch(() => {
 			// Silently handle autoplay restrictions
 		});
 	}
@@ -523,10 +816,13 @@
 		gasCanRefuelCount++;
 
 		// Shrink gas can progressively (gets harder to find over time)
-		gasCanSize = Math.max(
-			hauntedConfig.gasCanSizeMin,
-			gasCanSize * hauntedConfig.gasCanShrinkRate
-		);
+		// Stop shrinking after 10 refuels to maintain minimum viable size
+		if (gasCanRefuelCount < hauntedConfig.gasCanMinSizeThreshold) {
+			gasCanSize = Math.max(
+				hauntedConfig.gasCanSizeMin,
+				gasCanSize * hauntedConfig.gasCanShrinkRate
+			);
+		}
 
 		// Gradually refill to 100%
 		const refillInterval = setInterval(() => {
@@ -656,10 +952,24 @@
 			// Save link to localStorage and lock the input
 			localStorage.setItem('slippymud_google_docs_link', googleDocsLink);
 			isLinkLocked = true;
+			userHasChangedLink = true;
 		} else {
 			// Unlock and clear saved link
 			localStorage.removeItem('slippymud_google_docs_link');
 			isLinkLocked = false;
+		}
+	}
+
+	// Handle when user types in the link input
+	function handleLinkInput(event: Event) {
+		const newLink = (event.target as HTMLInputElement).value;
+		// Mark that user has changed the link if it differs from default
+		if (newLink !== defaultGoogleDocsLink) {
+			userHasChangedLink = true;
+			// Auto-check remember link when user changes from default
+			if (!rememberLink) {
+				rememberLink = true;
+			}
 		}
 	}
 
@@ -968,6 +1278,7 @@
 			drawWheel();
 
 			// Play victory sound when wheel stops
+			// (playVictory now handles horror mode automatically)
 			playVictory();
 
 			// Collect results based on actual ticker position
@@ -1048,10 +1359,21 @@
 	// LIFECYCLE - Load saved data from localStorage
 	// ============================================================================
 
+	// Declare horrorStartAudio and horrorResultAudio at the top
+	let horrorStartAudio: HTMLAudioElement;
+	let horrorResultAudio: HTMLAudioElement;
+
 	// Helper to load wheel click sounds into pool
 	function loadWheelClickPool() {
 		wheelClickAudioPool = [];
-		const soundFile = wheelClickSound === 'rimshot' ? rimClickSfx : wheelClickSfx;
+		let soundFile;
+		if (wheelClickSound === 'rimshot') {
+			soundFile = rimClickSfx;
+		} else if (wheelClickSound === 'wood_wheel') {
+			soundFile = woodWheelSfx;
+		} else {
+			soundFile = wheelClickSfx;
+		}
 		for (let i = 0; i < 10; i++) {
 			wheelClickAudioPool.push(new Audio(soundFile));
 		}
@@ -1086,6 +1408,17 @@
 			new Audio(mar05Sfx)
 		];
 
+		// Initialize horror start/result audio
+		horrorStartAudio = new Audio(horrorStartSfx);
+		horrorResultAudio = new Audio(horrorResultSfx);
+
+		// Initialize ghoul encounter audio
+		heartbeatAudio = new Audio(heartbeatSfx);
+		heartbeatAudio.volume = hauntedConfig.warningVolume; // Same as warning
+		heartbeatAudio.loop = true;
+
+		ghoulJumpscareAudio = new Audio(ghoulSfx);
+
 		// Load saved theme
 		loadTheme();
 
@@ -1101,6 +1434,15 @@
 			googleDocsLink = savedLink;
 			rememberLink = true;
 			isLinkLocked = true;
+			userHasChangedLink = true; // User has a saved link
+		}
+
+		// Auto-load movies from whatever link is in the input field (default or saved)
+		if (googleDocsLink && googleDocsLink.trim()) {
+			console.log('[INIT] Auto-loading movies from Google Docs link:', googleDocsLink);
+			handleRefresh();
+		} else {
+			console.log('[INIT] No link provided, using fallback 1-100');
 		}
 
 		// Initialize gas can position
@@ -1124,8 +1466,10 @@
 		stopFlickerAnimation();
 		// Clean up horror mode systems
 		stopTempoVariation();
+		stopGhoulSpawnSystem(); // Clean up ghoul system
 		if (horrorBgAudio) horrorBgAudio.pause();
 		if (warningAudio) warningAudio.pause();
+		if (heartbeatAudio) heartbeatAudio.pause();
 		if (jumpscareCountdownInterval) clearInterval(jumpscareCountdownInterval);
 		// Remove visibility change listener (browser only)
 		if (typeof document !== 'undefined') {
@@ -1156,6 +1500,7 @@
 			stopFlickerAnimation();
 			stopTempoVariation();
 			stopLanternIntroAnimation();
+			stopGhoulSpawnSystem(); // Stop ghoul system
 			if (horrorBgAudio) horrorBgAudio.pause();
 			if (warningAudio) warningAudio.pause();
 			if (jumpscareCountdownInterval) clearInterval(jumpscareCountdownInterval);
@@ -1188,6 +1533,7 @@
 		// Helper to start haunted intro animation
 		function startHauntedIntro() {
 			console.log('[HAUNTED INTRO] Starting haunted intro');
+			playHorrorStart();
 			lanternIntroProgress = 0;
 			const fadeDuration = 1500; // ms
 			const startTime = Date.now();
@@ -1203,6 +1549,7 @@
 					startFuelDrain();
 					startFlickerAnimation();
 					repositionGasCan();
+					startGhoulSpawnSystem(); // Start ghoul spawn system
 				}
 			}
 			animateLanternIntro();
@@ -1243,20 +1590,46 @@
 				onmouseenter={refuelLantern}
 			/>
 		{/if}
+
+		<!-- Ghoul Encounter (hidden in darkness until found) -->
+		{#if ghoulActive && lanternIntroProgress === 1}
+			<img
+				src={ghoulImg}
+				alt="Ghoul"
+				class="ghoul"
+				style="left: {ghoulX}px; top: {ghoulY}px; width: {ghoulSize}px; opacity: {hauntedConfig.ghoulOpacity};"
+				onmouseenter={onGhoulMouseEnter}
+				onmouseleave={onGhoulMouseLeave}
+			/>
+		{/if}
+
+		<!-- Optional: Visual feedback during hover -->
+		{#if isHoveringGhoul && ghoulHoverDuration > 0}
+			<div class="ghoul-hover-progress" style="left: {ghoulX}px; top: {ghoulY - 30}px;">
+				<div class="progress-bar" style="width: {(ghoulHoverDuration / hauntedConfig.ghoulFindTime) * 100}%;"></div>
+			</div>
+		{/if}
 		{/if}
 
 		<!-- Jumpscare Overlay -->
 		{#if showJumpscare}
 		<div class="jumpscare-overlay" class:fadeout={jumpscarePhase === 'fadeout'}>
 			{#if jumpscarePhase === 'jumpscare' || jumpscarePhase === 'scream'}
-			<img src={fnafJumpscareGif} alt="Jumpscare" class="jumpscare-gif" style="opacity: {jumpscareAnimationProgress};" />
+				<img
+					src={currentJumpscareType === 'ghoul' ? ghoulGif : fnafJumpscareGif}
+					alt="Jumpscare"
+					class="jumpscare-gif"
+					style="opacity: {jumpscareAnimationProgress};"
+					bind:this={jumpscareGifEl}
+					{...{loop: false}}
+				/>
 			{/if}
 		</div>
 		{/if}
 
 		<!-- Header :3 -->
 		<header style="background-color: {primaryColor}; border-bottom-color: {primaryColor};">
-			<h1 style="color: {secondaryColor};">SlippyMovieWheel</h1>
+			<h1 style="color: {secondaryColor};">SlippyMudWheel</h1>
 			<button class="theme-button" style="border-color: {secondaryColor}; color: {secondaryColor};" onclick={toggleThemeSettings}>Theme Settings</button>
 		</header>
 
@@ -1275,6 +1648,7 @@
 						class="link-input"
 						style="border-color: {primaryColor};"
 						bind:value={googleDocsLink}
+						oninput={handleLinkInput}
 						placeholder="Paste Google Docs sharing link here..."
 						disabled={isLinkLocked}
 					/>
@@ -1366,7 +1740,7 @@
 			{:else}
 				<div class="history-list">
 					{#each spinHistory as item (item.id)}
-						<div class="history-item" style="border-color: {primaryColor}; background-color: {primaryColor}10;">
+						<div class="history-item" style="border-color: {primaryColor}; background-color: {secondaryColor};">
 							<div class="history-item-content">
 								<p class="history-movie-name" style="color: {primaryColor};">{item.movie}</p>
 								<button
@@ -1399,7 +1773,9 @@
 	<!-- ============================================================================ -->
 
 	{#if showThemeSettings}
-		<div class="theme-settings-panel" class:closing={isClosingThemeSettings} style="background-color: {secondaryColor};">
+		<!-- Backdrop that closes modal when clicked -->
+		<div class="theme-settings-backdrop" class:closing={isClosingThemeSettings} onclick={toggleThemeSettings}></div>
+		<div class="theme-settings-panel" class:closing={isClosingThemeSettings} style="background-color: {secondaryColor};" onclick={(e) => e.stopPropagation()}>
 			<h2 style="color: {primaryColor}; border-bottom-color: {primaryColor};">Theme Settings</h2>
 
 			<!-- Action Buttons at Top -->
@@ -1585,6 +1961,7 @@
 						>
 							<option value="wheel_click">Wheel Click</option>
 							<option value="rimshot">Rimshot</option>
+							<option value="wood_wheel">Wood Creak</option>
 						</select>
 					</div>
 
@@ -2133,6 +2510,23 @@
 			}
 		}
 
+		/* Backdrop for closing modal on outside click */
+		.theme-settings-backdrop {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: rgba(0, 0, 0, 0.3);
+			z-index: 999;
+			animation: fadeIn 0.3s ease-out;
+			cursor: pointer;
+		}
+
+		.theme-settings-backdrop.closing {
+			animation: fadeOut 0.3s ease-out;
+		}
+
 		.theme-settings-panel {
 			position: fixed;
 			top: 0;
@@ -2146,7 +2540,7 @@
 			padding-bottom: 3rem;
 			overflow-y: auto;
 			animation: slideIn 0.3s ease-out;
-			pointer-events: none; /* Don't block mouse events (allows lantern to track) */
+			pointer-events: auto; /* Allow clicks on the panel */
 		}
 
 		.theme-settings-panel * {
@@ -2155,6 +2549,24 @@
 
 		.theme-settings-panel.closing {
 			animation: slideOut 0.3s ease-out forwards;
+		}
+
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+			}
+			to {
+				opacity: 1;
+			}
+		}
+
+		@keyframes fadeOut {
+			from {
+				opacity: 1;
+			}
+			to {
+				opacity: 0;
+			}
 		}
 
 		@keyframes slideIn {
@@ -2667,6 +3079,43 @@
 			transform: scale(1.15);
 			opacity: 1;
 			filter: drop-shadow(0 0 25px rgba(255, 200, 0, 0.9)) drop-shadow(0 0 10px rgba(255, 150, 0, 0.7));
+		}
+
+		/* ====================================================================
+		   GHOUL ENCOUNTER
+		   ==================================================================== */
+		.ghoul {
+			position: fixed;
+			height: auto;
+			z-index: 10000; /* Same as gas can - hidden in darkness */
+			cursor: crosshair; /* Different cursor to indicate danger */
+			transition: transform 0.2s ease, filter 0.2s ease;
+			filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.4));
+			pointer-events: auto;
+		}
+
+		.ghoul:hover {
+			transform: scale(1.1);
+			filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.8));
+		}
+
+		/* Hover progress indicator */
+		.ghoul-hover-progress {
+			position: fixed;
+			width: 100px;
+			height: 8px;
+			background: rgba(0, 0, 0, 0.5);
+			border: 1px solid rgba(255, 255, 255, 0.3);
+			border-radius: 4px;
+			overflow: hidden;
+			z-index: 10001;
+			pointer-events: none;
+		}
+
+		.progress-bar {
+			height: 100%;
+			background: linear-gradient(90deg, #ff0000, #ff6666);
+			transition: width 0.1s linear;
 		}
 
 		/* ====================================================================
