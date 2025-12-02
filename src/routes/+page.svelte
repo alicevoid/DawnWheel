@@ -1479,7 +1479,9 @@
 		// This prevents duplicate intervals from running
 
 		// Listen for mouse movement globally (fixes lantern freeze on modals)
-		window.addEventListener('mousemove', handleMouseMove);
+		if (typeof window !== 'undefined') {
+			window.addEventListener('mousemove', handleMouseMove);
+		}
 
 	});
 
@@ -1508,7 +1510,9 @@
 		if (itemCountNotifTimeout) clearTimeout(itemCountNotifTimeout);
 
 		// Remove global mousemove listener
-    	window.removeEventListener('mousemove', handleMouseMove);	
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('mousemove', handleMouseMove);
+		}
 
 	});
 
