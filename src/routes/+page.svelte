@@ -150,8 +150,8 @@
 		ghoulSpawnCheckInterval: 3000, // Check every 3 seconds
 		ghoulSpawnChance: 0.0167, // ~1.67% chance (1 per 3 minutes avg)
 		ghoulFindTime: 3000, // 3 seconds to hover
-		ghoulCountdownMin: 10, // 10 seconds min
-		ghoulCountdownMax: 20, // 20 seconds max
+		ghoulCountdownMin: 30, // 30 seconds min
+		ghoulCountdownMax: 40, // 40 seconds max
 		ghoulSizeInitial: 60, // Starting size (px) - smaller than before
 		ghoulSizeMin: 25, // Minimum size
 		ghoulShrinkRate: 0.93, // 7% smaller each encounter
@@ -344,7 +344,7 @@
 			warningAudio.loop = true;
 			warningAudio.currentTime = 0;
 			warningAudio.play().catch(() => {});
-	
+		}
 
 		jumpscareCountdownInterval = setInterval(() => {
 			if (horrorGamePaused) return; // Pause countdown
@@ -499,7 +499,7 @@
 			heartbeatAudio.play().catch(() => {});
 		}
 
-		// Start countdown timer (10-20 seconds)
+		// Start countdown timer (30-40 seconds)
 		const countdownTime = Math.floor(
 			hauntedConfig.ghoulCountdownMin +
 			Math.random() * (hauntedConfig.ghoulCountdownMax - hauntedConfig.ghoulCountdownMin)
@@ -1064,7 +1064,8 @@
 			wheelColors = ['#1E90FF', '#87CEEB', '#4682B4', '#5F9EA0', '#B0E0E6'];
 			backgroundWallpaper = 'arctic_bg.jpg';
 			wheelCenterImage = 'penguin.jpg';
-			wheelClickSound = 'rimshot'; // Ensure penguin theme uses rimshot or default
+			// Set wheel click sound for penguin theme
+			wheelClickSound = 'rimshot';
 
 		} else if (preset === 'haunted') {
 
@@ -1076,8 +1077,8 @@
 			wheelColors = ['#8B0000', '#FF0000', '#DC143C', '#B22222', '#A52A2A'];
 			backgroundWallpaper = 'creepy.jpg';
 			wheelCenterImage = 'hands.jpg';
-			wheelClickSound = 'wood_wheel'; // Auto set to wood creak for haunted theme
-
+			// Set wheel click sound for haunted theme
+			wheelClickSound = 'wood_wheel';
 		}
 	}
 
@@ -1861,7 +1862,7 @@
 
 				<div class="color-setting">
 					<label>Primary Color</label>
-										<input type="color" bind:value={primaryColor} style="border-color: {primaryColor};" />
+									<input type="color" bind:value={primaryColor} style="border-color: {primaryColor};" />
 							</div>
 
 				<div class="color-setting">
