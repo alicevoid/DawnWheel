@@ -1064,6 +1064,7 @@
 			wheelColors = ['#1E90FF', '#87CEEB', '#4682B4', '#5F9EA0', '#B0E0E6'];
 			backgroundWallpaper = 'arctic_bg.jpg';
 			wheelCenterImage = 'penguin.jpg';
+			wheelClickSound = 'rimshot'; // Ensure penguin theme uses rimshot or default
 
 		} else if (preset === 'haunted') {
 
@@ -1075,6 +1076,7 @@
 			wheelColors = ['#8B0000', '#FF0000', '#DC143C', '#B22222', '#A52A2A'];
 			backgroundWallpaper = 'creepy.jpg';
 			wheelCenterImage = 'hands.jpg';
+			wheelClickSound = 'wood_wheel'; // Auto set to wood creak for haunted theme
 
 		}
 	}
@@ -1859,7 +1861,7 @@
 
 				<div class="color-setting">
 					<label>Primary Color</label>
-					<input type="color" bind:value={primaryColor} style="border-color: {primaryColor};" />
+										<input type="color" bind:value={primaryColor} style="border-color: {primaryColor};" />
 							</div>
 
 				<div class="color-setting">
