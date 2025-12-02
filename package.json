@@ -10,8 +10,8 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"build:gh-pages": "NODE_ENV=production npm run build",
-		"preview:gh-pages": "NODE_ENV=production npm run build && npm run preview"
+		"build:gh-pages": "set NODE_ENV=production && npm run build",
+		"preview:gh-pages": "set NODE_ENV=production && npm run build && npm run preview"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

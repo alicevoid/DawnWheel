@@ -631,6 +631,14 @@
 		if (ghoulJumpscareAudio) {
 			ghoulJumpscareAudio.currentTime = 0;
 			ghoulJumpscareAudio.play().catch(() => {});
+
+			// Cut audio after 4 seconds
+			setTimeout(() => {
+				if (ghoulJumpscareAudio) {
+					ghoulJumpscareAudio.pause();
+					ghoulJumpscareAudio.currentTime = 0;
+				}
+			}, 4000);
 		}
 
 		// Show jumpscare overlay
@@ -656,8 +664,8 @@
 			if (jumpscareAnimationProgress >= 1) {
 				clearInterval(popInterval);
 
-				// Phase 2: Display for ~16 seconds (audio duration)
-				const ghoulDisplayDuration = 16000;
+				// Phase 2: Display for 4 seconds
+				const ghoulDisplayDuration = 4000;
 				setTimeout(() => {
 					// Phase 3: Fade to black
 					jumpscarePhase = 'fadeout';
@@ -1597,17 +1605,11 @@
 				src={ghoulImg}
 				alt="Ghoul"
 				class="ghoul"
+				class:hovering={isHoveringGhoul}
 				style="left: {ghoulX}px; top: {ghoulY}px; width: {ghoulSize}px; opacity: {hauntedConfig.ghoulOpacity};"
 				onmouseenter={onGhoulMouseEnter}
 				onmouseleave={onGhoulMouseLeave}
 			/>
-		{/if}
-
-		<!-- Optional: Visual feedback during hover -->
-		{#if isHoveringGhoul && ghoulHoverDuration > 0}
-			<div class="ghoul-hover-progress" style="left: {ghoulX}px; top: {ghoulY - 30}px;">
-				<div class="progress-bar" style="width: {(ghoulHoverDuration / hauntedConfig.ghoulFindTime) * 100}%;"></div>
-			</div>
 		{/if}
 		{/if}
 
@@ -3089,33 +3091,32 @@
 			height: auto;
 			z-index: 10000; /* Same as gas can - hidden in darkness */
 			cursor: crosshair; /* Different cursor to indicate danger */
-			transition: transform 0.2s ease, filter 0.2s ease;
 			filter: drop-shadow(0 0 8px rgba(255, 0, 0, 0.4));
 			pointer-events: auto;
 		}
 
 		.ghoul:hover {
-			transform: scale(1.1);
 			filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.8));
 		}
 
-		/* Hover progress indicator */
-		.ghoul-hover-progress {
-			position: fixed;
-			width: 100px;
-			height: 8px;
-			background: rgba(0, 0, 0, 0.5);
-			border: 1px solid rgba(255, 255, 255, 0.3);
-			border-radius: 4px;
-			overflow: hidden;
-			z-index: 10001;
-			pointer-events: none;
+		/* Shake effect when hovering over ghoul */
+		.ghoul.hovering {
+			animation: ghoulShake 0.15s ease-in-out infinite;
 		}
 
-		.progress-bar {
-			height: 100%;
-			background: linear-gradient(90deg, #ff0000, #ff6666);
-			transition: width 0.1s linear;
+		@keyframes ghoulShake {
+			0%, 100% {
+				transform: translate(0, 0) rotate(0deg);
+			}
+			25% {
+				transform: translate(-2px, 1px) rotate(-1deg);
+			}
+			50% {
+				transform: translate(2px, -1px) rotate(1deg);
+			}
+			75% {
+				transform: translate(-1px, 2px) rotate(-0.5deg);
+			}
 		}
 
 		/* ====================================================================
