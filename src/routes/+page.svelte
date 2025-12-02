@@ -87,7 +87,7 @@
 	let wheelClickEnabled = $state(true); // Wheel click sound
 	let wheelClickSound = $state('rimshot'); // 'wheel_click' or 'rimshot'
 	let victoryEnabled = $state(true); // Victory sound
-	let sfxVolume = $state(0.5); // Master volume (0-1)
+	let sfxVolume = $state(0.2); // Master volume (0-1)
 
 	// Audio instances (created on mount to avoid SSR issues)
 	let wheelClickAudioPool: HTMLAudioElement[] = []; // Pool of 10 instances for overlapping
