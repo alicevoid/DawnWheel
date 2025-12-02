@@ -1477,6 +1477,10 @@
 
 		// Note: Haunted Mode systems are started by the $effect() below, not here
 		// This prevents duplicate intervals from running
+
+		// Listen for mouse movement globally (fixes lantern freeze on modals)
+		window.addEventListener('mousemove', handleMouseMove);
+
 	});
 
 	onDestroy(() => {
@@ -1502,6 +1506,10 @@
 		stopHorrorIntroAnimation();
 		stopLanternIntroAnimation();
 		if (itemCountNotifTimeout) clearTimeout(itemCountNotifTimeout);
+
+		// Remove global mousemove listener
+    	window.removeEventListener('mousemove', handleMouseMove);	
+
 	});
 
 	// Watch for theme changes to start/stop Haunted Mode systems
@@ -1591,60 +1599,7 @@
 		<!-- MAIN LAYOUT
 		// ============================================================================ -->
 
-	<div class="app-container" role="application" style="font-family: {selectedFont}; background-color: {wheelBackground}; {backgroundWallpaper === 'arctic_bg.jpg' ? `background-image: url('${arcticBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : backgroundWallpaper === 'creepy.jpg' ? `background-image: url('${creepyBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : ''}" onmousemove={handleMouseMove}>
-
-		{#if selectedThemePreset === 'haunted'}
-		<!-- Use only one lantern-overlay for haunted mode, always rendered -->
-		<div
-			class="lantern-overlay haunted-intro"
-			style="
-				--cursor-x: {cursorX}px;
-				--cursor-y: {cursorY}px;
-				--fuel-level: {fuelLevel};
-				--flicker: {lightFlicker};
-				--lantern-intro: {lanternIntroProgress};
-			"
-		></div>
-		<!-- Show gas can only after intro is done -->
-		{#if lanternIntroProgress === 1}
-			<img
-				src={gasCanImg}
-				alt="Gas Can"
-				class="gas-can"
-				style="left: {gasCanX}px; top: {gasCanY}px; width: {gasCanSize}px;"
-				onmouseenter={refuelLantern}
-			/>
-		{/if}
-
-		<!-- Ghoul Encounter (hidden in darkness until found) -->
-		{#if ghoulActive && lanternIntroProgress === 1}
-			<img
-				src={ghoulImg}
-				alt="Ghoul"
-				class="ghoul"
-				class:hovering={isHoveringGhoul}
-				style="left: {ghoulX}px; top: {ghoulY}px; width: {ghoulSize}px; opacity: {hauntedConfig.ghoulOpacity};"
-				onmouseenter={onGhoulMouseEnter}
-				onmouseleave={onGhoulMouseLeave}
-			/>
-		{/if}
-		{/if}
-
-		<!-- Jumpscare Overlay -->
-		{#if showJumpscare}
-		<div class="jumpscare-overlay" class:fadeout={jumpscarePhase === 'fadeout'}>
-			{#if jumpscarePhase === 'jumpscare' || jumpscarePhase === 'scream'}
-				<img
-					src={currentJumpscareType === 'ghoul' ? ghoulGif : fnafJumpscareGif}
-					alt="Jumpscare"
-					class="jumpscare-gif"
-					style="opacity: {jumpscareAnimationProgress};"
-					bind:this={jumpscareGifEl}
-					{...{loop: false}}
-				/>
-			{/if}
-		</div>
-		{/if}
+	<div class="app-container" role="application" style="font-family: {selectedFont}; background-color: {wheelBackground}; {backgroundWallpaper === 'arctic_bg.jpg' ? `background-image: url('${arcticBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : backgroundWallpaper === 'creepy.jpg' ? `background-image: url('${creepyBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : ''}">
 
 		<!-- Header :3 -->
 		<header style="background-color: {primaryColor}; border-bottom-color: {primaryColor};">
@@ -2024,6 +1979,64 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- ============================================================================ -->
+	<!-- HAUNTED MODE OVERLAYS AND ELEMENTS -->
+	<!-- ============================================================================ -->
+
+	{#if selectedThemePreset === 'haunted'}
+	<!-- Use only one lantern-overlay for haunted mode, always rendered -->
+	<div
+		class="lantern-overlay haunted-intro"
+		style="
+			--cursor-x: {cursorX}px;
+			--cursor-y: {cursorY}px;
+			--fuel-level: {fuelLevel};
+			--flicker: {lightFlicker};
+			--lantern-intro: {lanternIntroProgress};
+		"
+	></div>
+	<!-- Show gas can only after intro is done -->
+	{#if lanternIntroProgress === 1}
+		<img
+			src={gasCanImg}
+			alt="Gas Can"
+			class="gas-can"
+			style="left: {gasCanX}px; top: {gasCanY}px; width: {gasCanSize}px;"
+			onmouseenter={refuelLantern}
+		/>
+	{/if}
+
+	<!-- Ghoul Encounter (hidden in darkness until found) -->
+	{#if ghoulActive && lanternIntroProgress === 1}
+		<img
+			src={ghoulImg}
+			alt="Ghoul"
+			class="ghoul"
+			class:hovering={isHoveringGhoul}
+			style="left: {ghoulX}px; top: {ghoulY}px; width: {ghoulSize}px; opacity: {hauntedConfig.ghoulOpacity};"
+			onmouseenter={onGhoulMouseEnter}
+			onmouseleave={onGhoulMouseLeave}
+		/>
+	{/if}
+	{/if}
+
+	<!-- Jumpscare Overlay -->
+	{#if showJumpscare}
+	<div class="jumpscare-overlay" class:fadeout={jumpscarePhase === 'fadeout'}>
+		{#if jumpscarePhase === 'jumpscare' || jumpscarePhase === 'scream'}
+			<img
+				src={currentJumpscareType === 'ghoul' ? ghoulGif : fnafJumpscareGif}
+				alt="Jumpscare"
+				class="jumpscare-gif"
+				style="opacity: {jumpscareAnimationProgress};"
+				bind:this={jumpscareGifEl}
+				{...{loop: false}}
+			/>
+		{/if}
+	</div>
+	{/if}
+
 
 	<!-- ============================================================================ -->
 	<!-- STYLES -->
@@ -3029,7 +3042,7 @@
 			width: 100vw;
 			height: 100vh;
 			pointer-events: none;
-			z-index: 99999; /* Cover everything including theme settings modal */
+			z-index: 999999; /* Cover everything including theme settings modal */
 
 			/* ====================================================================
 			   DYNAMIC LIGHT PROPERTIES (with flicker)
@@ -3150,7 +3163,7 @@
 			left: 0;
 			width: 100vw;
 			height: 100vh;
-			z-index: 100000; /* Above everything */
+			z-index: 1000000; /* Above everything */
 			display: flex;
 			align-items: center;
 			justify-content: center;
