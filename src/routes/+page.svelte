@@ -22,6 +22,7 @@
 	import horrorStartSfx from '$lib/horror_start.ogg';
 	import horrorResultSfx from '$lib/horror_result.ogg';
 	import woodWheelSfx from '$lib/wood_wheel.ogg';
+	import KICK13Sfx from '$lib/KICK_13.ogg';
 
 	// Marionette scream SFX (random one plays before reset)
 	import mar01Sfx from '$lib/Mar01.ogg';
@@ -1395,6 +1396,8 @@
 			soundFile = rimClickSfx;
 		} else if (wheelClickSound === 'wood_wheel') {
 			soundFile = woodWheelSfx;
+		} else if (wheelClickSound === 'kick_13') {
+			soundFile = KICK13Sfx;
 		} else {
 			soundFile = wheelClickSfx;
 		}
@@ -1945,6 +1948,7 @@
 							<option value="wheel_click">Wheel Click</option>
 							<option value="rimshot">Rimshot</option>
 							<option value="wood_wheel">Wood Creak</option>
+							<option value="kick_13">KICK 13</option>
 						</select>
 					</div>
 
