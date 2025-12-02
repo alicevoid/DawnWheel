@@ -908,6 +908,11 @@
 	};
 	let spinHistory = $state<HistoryItem[]>([]);
 
+	// Add state for item count notification
+	let showItemCountNotif = $state(false);
+	let itemCountNotifText = $state('');
+	let itemCountNotifTimeout: number;
+
 	// ============================================================================
 	// SPIN HISTORY MANAGEMENT
 	// ============================================================================
@@ -1024,8 +1029,16 @@
 			// Update movies array with the lines from the document
 			movies = lines;
 
-			alert(`Successfully loaded ${lines.length} items from Google Docs!`);
+			// Show notification instead of alert
+			itemCountNotifText = `+${lines.length} items`;
+			showItemCountNotif = true;
+			if (itemCountNotifTimeout) clearTimeout(itemCountNotifTimeout);
+			itemCountNotifTimeout = setTimeout(() => {
+				showItemCountNotif = false;
+			}, 2200);
 
+			// Remove ALL alert calls for item count
+			// (No alert for manual refresh or auto-load)
 		} catch (error) {
 			console.error('Error fetching Google Docs:', error);
 			alert('Failed to load document. Make sure:\n1. The link is correct\n2. The document is set to "Anyone with the link can view"\n3. You have internet connection');
@@ -1485,6 +1498,7 @@
 		}
 		stopHorrorIntroAnimation();
 		stopLanternIntroAnimation();
+		if (itemCountNotifTimeout) clearTimeout(itemCountNotifTimeout);
 	});
 
 	// Watch for theme changes to start/stop Haunted Mode systems
@@ -1667,6 +1681,11 @@
 			<!-- ==================================================================== -->
 
 			<section class="wheel-section" style="background-color: {wheelBackground};">
+				{#if showItemCountNotif}
+					<div class="item-count-notif" style="color: {secondaryColor};">
+						{itemCountNotifText}
+					</div>
+				{/if}
 				<!-- Canvas-based Wheel -->
 				<!-- Features:
 					- Slow idle rotation ✓
@@ -1841,7 +1860,7 @@
 				<div class="color-setting">
 					<label>Primary Color</label>
 					<input type="color" bind:value={primaryColor} style="border-color: {primaryColor};" />
-				</div>
+							</div>
 
 				<div class="color-setting">
 					<label>Secondary Color</label>
@@ -3156,6 +3175,29 @@
 				background: black;
 				opacity: 0;
 			}
+		}
+
+		.item-count-notif {
+			position: absolute;
+			top: 18px;
+			left: 18px;
+			font-size: 1.3rem;
+			font-weight: bold;
+			color: var(--secondary-color, #fff);
+			background: rgba(0,0,0,0.08);
+			padding: 0.35em 1em;
+			border-radius: 8px;
+			pointer-events: none;
+			opacity: 1;
+			animation: fadeItemNotif 2.2s ease-out forwards;
+			z-index: 20;
+		}
+
+		@keyframes fadeItemNotif {
+			0% { opacity: 0; transform: translateY(-10px);}
+			10% { opacity: 1; transform: translateY(0);}
+			80% { opacity: 1; }
+			100% { opacity: 0; transform: translateY(-10px);}
 		}
 
 	</style>
