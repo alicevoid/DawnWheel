@@ -27,3 +27,4 @@ vite.config.ts.timestamp-*
 .claude-*.json
 .claude-*.log
 .claude-cache/
+nul
