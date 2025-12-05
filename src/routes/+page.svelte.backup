@@ -9,9 +9,6 @@
 	import penguinImg from '$lib/penguin.jpg';
 	import handsImg from '$lib/hands.jpg';
 	import gasCanImg from '$lib/gas_can.png';
-	import blackTag from '$lib/black.png';
-	import black2Tag from '$lib/black2.png';
-	import faviconImg from '$lib/SMM_logo.ico';
 	import wheelClickSfx from '$lib/wheel_click.ogg';
 	import rimClickSfx from '$lib/rim_click.ogg';
 	import victorySfx from '$lib/victory.ogg';
@@ -141,22 +138,22 @@
 
 		// Candlelight multi-layered radius system (NEW - Phase 4 Enhanced)
 		// Core zone - always bright, minimal flicker
-		coreRadiusMin: 45,
-		coreRadiusMax: 55,
+		coreRadiusMin: 40,
+		coreRadiusMax: 60,
 
 		// Inner glow - main illumination zone, moderate flicker
-		innerRadiusMin: 150,
-		innerRadiusMax: 170,
+		innerRadiusMin: 140,
+		innerRadiusMax: 180,
 
 		// Outer falloff - ambient light, most flicker/fade
-		outerRadiusMin: 180,
-		outerRadiusMax: 200,
+		outerRadiusMin: 200,
+		outerRadiusMax: 250,
 
 		// Fast flickers (dancing flame effect)
-		fastFlickerCheckInterval: 150, // Check every 150ms for smoother feel
-		fastFlickerChance: 0.15, // 15% chance per check (less frequent)
-		fastFlickerDurationMin: 200, // Slower, more gradual flickers
-		fastFlickerDurationMax: 400,
+		fastFlickerCheckInterval: 80, // Check every 80ms for fast response
+		fastFlickerChance: 0.25, // 25% chance per check
+		fastFlickerDurationMin: 100, // Very quick flickers
+		fastFlickerDurationMax: 200,
 
 		// Breathing animation (gentle pulsing from hand movement)
 		breathingSpeedMin: 2000, // 2-4 second breathing cycles
@@ -235,8 +232,6 @@
 	// Gas can cooldown system (NEW - Phase 4)
 	let gasCanCooldown = $state(false); // Is gas can on cooldown?
 	let gasCanCooldownTimer: number | null = null;
-	let gasCanSpawning = $state(false); // Is gas can fading in? (NEW - Phase 4 Enhanced)
-	let gasCanFadeDuration = $state(3000); // Random fade-in duration (3-7 seconds)
 
 	// Candlelight multi-layered system (NEW - Phase 4 Enhanced)
 	let coreRadius = $state(50); // Core bright zone
@@ -248,11 +243,6 @@
 	let fastFlickerInterval: number | null = null;
 	let gutterInterval: number | null = null;
 	let isGuttering = $state(false);
-
-	// Hand-shake offset (simulates person trying to steady the lantern)
-	let handShakeOffsetX = $state(0);
-	let handShakeOffsetY = $state(0);
-	let handShakeInterval: number | null = null;
 
 	// Horror Mode Audio
 	let horrorBgAudio: HTMLAudioElement;
@@ -875,10 +865,8 @@
 			if (fuelLevel > 0) {
 				fuelLevel = Math.max(0, fuelLevel - (100 / 300)); // 300 intervals in 60 seconds
 				updateBgMusicVolume(); // Dynamic volume adjustment
-			} else if (fuelLevel <= 0 && jumpscareCountdown === -1) {
-				// SAFEGUARD: Only trigger jumpscare if fuel is truly depleted
-				console.log(`[FUEL DRAIN] Fuel depleted! fuelLevel=${fuelLevel}, triggering jumpscare countdown`);
-				fuelLevel = 0; // Ensure it's exactly 0
+			} else if (fuelLevel === 0 && jumpscareCountdown === -1) {
+				// Trigger jumpscare countdown when fuel runs out
 				startJumpscareCountdown();
 			}
 		}, hauntedConfig.fuelDrainInterval);
@@ -894,18 +882,6 @@
 
 	function refuelLantern() {
 		console.log('Refueling lantern from gas can');
-
-		// SAFEGUARD: Cancel jumpscare countdown if it was running
-		if (jumpscareCountdown >= 0) {
-			console.log(`[REFUEL] Canceling active jumpscare countdown (was at ${jumpscareCountdown}s)`);
-			clearInterval(jumpscareCountdownInterval);
-			jumpscareCountdown = -1;
-			// Stop warning audio
-			if (warningAudio) {
-				warningAudio.pause();
-				warningAudio.currentTime = 0;
-			}
-		}
 
 		// Play refill sound
 		if (refillAudio && sfxEnabled) {
@@ -967,11 +943,10 @@
 		innerRadius = (hauntedConfig.innerRadiusMin + hauntedConfig.innerRadiusMax) / 2;
 		outerRadius = (hauntedConfig.outerRadiusMin + hauntedConfig.outerRadiusMax) / 2;
 
-		// Start all systems
+		// Start all three systems
 		startFastFlickers();
 		startBreathingAnimation();
 		startGutterSystem();
-		startHandShake();
 	}
 
 	/**
@@ -998,17 +973,9 @@
 			gutterInterval = null;
 		}
 
-		// Stop hand shake
-		if (handShakeInterval) {
-			clearInterval(handShakeInterval);
-			handShakeInterval = null;
-		}
-
 		// Reset state
 		isGuttering = false;
 		breathingPhase = 0;
-		handShakeOffsetX = 0;
-		handShakeOffsetY = 0;
 	}
 
 	/**
@@ -1043,9 +1010,8 @@
 		window.setTimeout(() => {
 			// Return to breathing baseline
 			const breathingMod = Math.sin(breathingPhase * Math.PI * 2) * hauntedConfig.breathingIntensity;
-			const fuelMultiplier = 0.5 + (fuelLevel / 100) * 0.5;
-			outerRadius = ((hauntedConfig.outerRadiusMin + hauntedConfig.outerRadiusMax) / 2) * (1 + breathingMod) * fuelMultiplier;
-			innerRadius = ((hauntedConfig.innerRadiusMin + hauntedConfig.innerRadiusMax) / 2) * (1 + breathingMod) * fuelMultiplier;
+			outerRadius = ((hauntedConfig.outerRadiusMin + hauntedConfig.outerRadiusMax) / 2) * (1 + breathingMod);
+			innerRadius = ((hauntedConfig.innerRadiusMin + hauntedConfig.innerRadiusMax) / 2) * (1 + breathingMod);
 		}, flickerDuration);
 	}
 
@@ -1075,15 +1041,13 @@
 			// Apply sine wave breathing effect (unless guttering)
 			if (!isGuttering) {
 				const breathingMod = Math.sin(breathingPhase * Math.PI * 2) * hauntedConfig.breathingIntensity;
-				// Fuel multiplier - light shrinks as fuel depletes (50% to 100% size based on fuel)
-				const fuelMultiplier = 0.5 + (fuelLevel / 100) * 0.5;
 
 				// Core barely breathes
-				coreRadius = ((hauntedConfig.coreRadiusMin + hauntedConfig.coreRadiusMax) / 2) * (1 + breathingMod * 0.2) * fuelMultiplier;
+				coreRadius = ((hauntedConfig.coreRadiusMin + hauntedConfig.coreRadiusMax) / 2) * (1 + breathingMod * 0.2);
 
 				// Inner and outer breathe more
-				innerRadius = ((hauntedConfig.innerRadiusMin + hauntedConfig.innerRadiusMax) / 2) * (1 + breathingMod) * fuelMultiplier;
-				outerRadius = ((hauntedConfig.outerRadiusMin + hauntedConfig.outerRadiusMax) / 2) * (1 + breathingMod) * fuelMultiplier;
+				innerRadius = ((hauntedConfig.innerRadiusMin + hauntedConfig.innerRadiusMax) / 2) * (1 + breathingMod);
+				outerRadius = ((hauntedConfig.outerRadiusMin + hauntedConfig.outerRadiusMax) / 2) * (1 + breathingMod);
 			}
 
 			breathingAnimationFrame = requestAnimationFrame(animate);
@@ -1125,21 +1089,6 @@
 		}, gutterDuration);
 	}
 
-	/**
-	 * Hand shake - Simulates person trying to steady the lantern
-	 * Slight random movements to make it feel more alive
-	 */
-	function startHandShake() {
-		if (handShakeInterval) return;
-
-		handShakeInterval = window.setInterval(() => {
-			// Small random offsets (±3px to ±8px range)
-			const maxOffset = 8;
-			handShakeOffsetX = (Math.random() - 0.5) * maxOffset;
-			handShakeOffsetY = (Math.random() - 0.5) * maxOffset;
-		}, 150); // Update every 150ms for subtle movement
-	}
-
 	function repositionGasCan() {
 		console.log('Repositioning gas can away from mouse');
 
@@ -1179,13 +1128,6 @@
 
 		gasCanX = x;
 		gasCanY = y;
-
-		// Trigger fade-in animation with random duration (3-7 seconds)
-		gasCanFadeDuration = 3000 + Math.random() * 4000; // Random between 3000-7000ms
-		gasCanSpawning = true;
-		setTimeout(() => {
-			gasCanSpawning = false;
-		}, gasCanFadeDuration);
 	}
 
 	// Preload center images
@@ -2116,8 +2058,8 @@
 			console.log('[INIT] No link provided, using fallback 1-100');
 		}
 
-		// Gas can position will be initialized after haunted intro (6-second delay)
-		// Removed early repositionGasCan() call to prevent spawning before intro completes
+		// Initialize gas can position
+		repositionGasCan();
 
 		// Add visibility change listener for pause/resume
 		document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -2183,7 +2125,9 @@
 				horrorBgAudio.play().catch(e => console.error('Failed to play horror music:', e));
 			}
 			startTempoVariation();
-			// Start haunted intro animation (candlelight starts AFTER intro completes)
+			// Start candlelight system (NEW - Phase 4 Enhanced)
+			startCandlelightSystem();
+			// Start haunted intro animation (delays game logic)
 			startHauntedIntro();
 			console.log(`[HAUNTED INTRO] Haunted Mode systems will start after intro`);
 		} else if (selectedThemePreset !== 'haunted' && hauntedInit == true){
@@ -2209,7 +2153,6 @@
 				gasCanCooldownTimer = null;
 			}
 			gasCanCooldown = false;
-			gasCanSpawning = false;
 			fuelLevel = 100;
 			gasCanSize = hauntedConfig.gasCanSizeInitial;
 			gasCanRefuelCount = 0;
@@ -2271,15 +2214,10 @@
 					lanternIntroAnimationFrame = requestAnimationFrame(animateLanternIntro);
 				} else {
 					console.log('[HAUNTED INTRO] Lantern fade-in complete, starting game');
-					// Start candlelight animations (NOW - after intro fade complete)
-					startCandlelightSystem();
 					// Start game logic only (no bg music here)
 					startFuelDrain();
 					startFlickerAnimation();
-// Delay first gas can spawn by 6 seconds
-					setTimeout(() => {
-						repositionGasCan();
-					}, 6000);
+					repositionGasCan();
 					startGhoulSpawnSystem(); // Start ghoul spawn system
 				}
 			}
@@ -2292,12 +2230,7 @@
 			}
 		}
 	</script>
-
-<svelte:head>
-	<link rel="icon" type="image/x-icon" href={faviconImg} />
-	<title>SlippyMudWheel :3</title>
-</svelte:head>
-
+	
 		<!-- ============================================================================
 		<!-- MAIN LAYOUT
 		// ============================================================================ -->
@@ -2306,7 +2239,7 @@
 
 		<!-- Header :3 -->
 		<header style="background-color: {primaryColor}; border-bottom-color: {primaryColor};">
-			<h1 style="color: {secondaryColor};">SlippyMudWheel!</h1>
+			<h1 style="color: {secondaryColor};">SlippyMudWheel</h1>
 			<button class="theme-button" style="border-color: {secondaryColor}; color: {secondaryColor};" onclick={toggleThemeSettings}>Theme Settings</button>
 		</header>
 
@@ -2441,10 +2374,6 @@
 		</aside>
 
 		<footer style="background-color: {secondaryColor}; border-top-color: {primaryColor};">
-		<!-- Spraypaint tags -->
-		<img src={blackTag} alt="" class="spraypaint-left" />
-		<img src={black2Tag} alt="" class="spraypaint-right" />
-
 		<p class="footer-main" style="color: {primaryColor};">made for Dawn</p>
 		<p class="footer-small" style="color: {primaryColor};">
 			alicevoid - {selectedThemePreset === 'haunted'
@@ -2769,10 +2698,10 @@
 	{#if selectedThemePreset === 'haunted'}
 	<!-- Use only one lantern-overlay for haunted mode, always rendered -->
 	<div
-		class="lantern-overlay"
+		class="lantern-overlay haunted-intro"
 		style="
-			--cursor-x: {cursorX + handShakeOffsetX}px;
-			--cursor-y: {cursorY + handShakeOffsetY}px;
+			--cursor-x: {cursorX}px;
+			--cursor-y: {cursorY}px;
 			--fuel-level: {fuelLevel};
 			--flicker: {lightFlicker};
 			--lantern-intro: {lanternIntroProgress};
@@ -2781,39 +2710,13 @@
 			--outer-radius: {outerRadius}px;
 		"
 	></div>
-
-	<!-- CANDLELIGHT DEBUG OVERLAY -->
-	<div class="candlelight-debug">
-		<h3>🕯️ Candlelight Debug</h3>
-		<div class="debug-section">
-			<h4>Radii (px)</h4>
-			<div class="debug-value">🔵 Core: {coreRadius.toFixed(1)} ({hauntedConfig.coreRadiusMin}-{hauntedConfig.coreRadiusMax})</div>
-			<div class="debug-value">🟢 Inner: {innerRadius.toFixed(1)} ({hauntedConfig.innerRadiusMin}-{hauntedConfig.innerRadiusMax})</div>
-			<div class="debug-value">🔴 Outer: {outerRadius.toFixed(1)} ({hauntedConfig.outerRadiusMin}-{hauntedConfig.outerRadiusMax})</div>
-		</div>
-		<div class="debug-section">
-			<h4>Animation States</h4>
-			<div class="debug-value">Fast Flicker: {fastFlickerInterval ? '✅ Running' : '❌ Stopped'}</div>
-			<div class="debug-value">Breathing: {breathingAnimationFrame ? '✅ Running' : '❌ Stopped'}</div>
-			<div class="debug-value">Breathing Phase: {(breathingPhase * 100).toFixed(1)}%</div>
-			<div class="debug-value">Breathing Speed: {breathingSpeed}ms</div>
-			<div class="debug-value">Gutter System: {gutterInterval ? '✅ Running' : '❌ Stopped'}</div>
-			<div class="debug-value">Is Guttering: {isGuttering ? '🔥 YES' : 'No'}</div>
-		</div>
-		<div class="debug-section">
-			<h4>Other</h4>
-			<div class="debug-value">Fuel Level: {fuelLevel.toFixed(1)}%</div>
-			<div class="debug-value">Intro Progress: {(lanternIntroProgress * 100).toFixed(0)}%</div>
-		</div>
-	</div>
-
 	<!-- Show gas can only after intro is done AND not on cooldown -->
 	{#if lanternIntroProgress === 1 && !gasCanCooldown}
 		<img
 			src={gasCanImg}
 			alt="Gas Can"
-			class="gas-can {gasCanSpawning ? 'spawning' : ''}"
-			style="left: {gasCanX}px; top: {gasCanY}px; width: {gasCanSize}px; --fade-duration: {gasCanFadeDuration}ms;"
+			class="gas-can"
+			style="left: {gasCanX}px; top: {gasCanY}px; width: {gasCanSize}px;"
 			onmouseenter={refuelLantern}
 		/>
 	{/if}
@@ -3324,31 +3227,6 @@
 			padding: 1.5rem 1rem;
 			border-top: 2px solid #ccc;
 			background: #f9f9f9;
-			position: relative;     /* Allows absolute positioning of spraypaint images */
-			overflow-x: hidden;     /* Clip sides only - allow images to spill over top */
-		}
-
-		/* Spraypaint tag images - positioned to look "wrapped on" the footer */
-		.spraypaint-left {
-			position: absolute;
-			left: 40px;           /* Closer to center */
-			bottom: -40px;        /* Partially cut off at bottom */
-			width: 300px;         /* Larger size */
-			transform: rotate(-15deg);  /* Tilted left for natural spraypaint look */
-			opacity: 0.7;
-			pointer-events: none; /* Don't interfere with footer text clicks */
-			z-index: 1;          /* Above footer background, below text */
-		}
-
-		.spraypaint-right {
-			position: absolute;
-			right: 40px;          /* Closer to center */
-			bottom: -50px;        /* Partially cut off at bottom */
-			width: 280px;         /* Larger size */
-			transform: rotate(12deg);   /* Tilted right for natural spraypaint look */
-			opacity: 0.7;
-			pointer-events: none;
-			z-index: 1;
 		}
 
 		.footer-main {
@@ -3896,8 +3774,10 @@
 			z-index: 999999; /* Cover everything including theme settings modal */
 
 			/* ====================================================================
-			   CANDLELIGHT SYSTEM - Multi-layered organic lighting
+			   DYNAMIC LIGHT PROPERTIES (with flicker)
 			   ==================================================================== */
+			/* NEW: Use dynamic lantern radius from Phase 4 flicker system */
+			--light-radius: calc(var(--lantern-radius) * (1 + var(--flicker)));
 			--light-brightness: calc(var(--fuel-level) / 100);
 
 			/* Logarithmic color temperature (warm → cool transition)
@@ -3909,53 +3789,42 @@
 			--warm-blue: calc(180 + (75 * var(--coolness-factor)));   /* 180 → 255 */
 
 			/* Vignette: edges get darker as fuel depletes (desperation effect) */
-			/* Darker overall for more oppressive atmosphere */
+			/* More gradual darkness increase - starts at 85% opaque, goes to 95% */
 			--vignette: calc(0.85 + (0.10 * (1 - var(--light-brightness))));
 
 			/* ====================================================================
-			   MULTI-LAYERED CANDLELIGHT WITH THEME INTEGRATION
+			   OPPRESSIVE DARKNESS WITH REALISTIC FLASHLIGHT FALLOFF
 			   ==================================================================== */
-			background:
-				/* Layer 3: Outer glow - ambient light falloff */
-				radial-gradient(
-					circle var(--outer-radius) at var(--cursor-x) var(--cursor-y),
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.35 * var(--light-brightness))) 0%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.08 * var(--light-brightness))) 40%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.02 * var(--light-brightness))) 85%,
-					transparent 100%
-				),
-				/* Layer 2: Inner glow - main illumination zone */
-				radial-gradient(
-					circle var(--inner-radius) at var(--cursor-x) var(--cursor-y),
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.35 * var(--light-brightness))) 0%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.20 * var(--light-brightness))) 50%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.05 * var(--light-brightness))) 85%,
-					transparent 100%
-				),
-				/* Layer 1: Core - bright center */
-				radial-gradient(
-					circle var(--core-radius) at var(--cursor-x) var(--cursor-y),
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.60 * var(--light-brightness))) 0%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.40 * var(--light-brightness))) 60%,
-					transparent 100%
-				),
-				/* Base darkness - fades from transparent near cursor to black at edges */
-				radial-gradient(
-					circle 300px at var(--cursor-x) var(--cursor-y),
-					transparent 0%,
-					rgba(0, 0, 0, 0.7) 40%,
-					rgba(0, 0, 0, 0.95) 100%
-				);
-			transition: background 0.4s ease-in-out;
+			background: radial-gradient(
+				circle var(--light-radius) at var(--cursor-x) var(--cursor-y),
+				/* Center: Nearly transparent (flashlight core) */
+				rgba(var(--warm-red), var(--warm-green), var(--warm-blue), 0.05) 0%,
+				rgba(var(--warm-red), var(--warm-green), var(--warm-blue), 0.08) 10%,
+
+				/* Inner cone: Visible light (what you can actually see by) */
+				rgba(var(--warm-red), var(--warm-green), var(--warm-blue), 0.15) 20%,
+				rgba(var(--warm-red), var(--warm-green), var(--warm-blue), 0.25) 35%,
+
+				/* Mid falloff: More gradual transition from light to shadow */
+				rgba(0, 0, 0, calc(0.35 * (1 - var(--light-brightness) * 0.4))) 50%,
+				rgba(0, 0, 0, calc(0.55 * (1 - var(--light-brightness) * 0.3))) 65%,
+
+				/* Outer falloff: Less aggressive darkness */
+				rgba(0, 0, 0, 0.75) 80%,
+				rgba(0, 0, 0, 0.85) 90%,
+				rgba(0, 0, 0, var(--vignette)) 97%,
+
+				/* Edge vignette: Still dark but less oppressive */
+				rgba(0, 0, 0, 0.95) 100%
+			);
+			transition: background 0.3s ease-out; /* Slower, smoother transitions */
 		}
 
 		.lantern-overlay.haunted-intro {
-			/* Animate all three candlelight radii during intro fade-in */
-			--core-radius: calc(50px * var(--lantern-intro));
-			--inner-radius: calc(160px * var(--lantern-intro));
-			--outer-radius: calc(225px * var(--lantern-intro));
+			/* NEW: Use dynamic lantern radius with intro animation */
+			--light-radius: calc(var(--lantern-radius) * (1 + var(--flicker)) * var(--lantern-intro));
 			--light-brightness: calc((var(--fuel-level) / 100) * var(--lantern-intro));
-			transition: background 0.15s ease-out, --light-brightness 1.5s;
+			transition: background 0.3s, --light-radius 1.5s, --light-brightness 1.5s;
 		}
 
 		.gas-can {
@@ -3974,23 +3843,6 @@
 			transform: scale(1.15);
 			opacity: 1;
 			filter: drop-shadow(0 0 25px rgba(255, 200, 0, 0.9)) drop-shadow(0 0 10px rgba(255, 150, 0, 0.7));
-		}
-
-		.gas-can.spawning {
-			animation: gasCanFadeIn var(--fade-duration, 3000ms) ease-out forwards;
-		}
-
-		@keyframes gasCanFadeIn {
-			from {
-				opacity: 0;
-				transform: scale(0.8);
-				filter: drop-shadow(0 0 0 rgba(255, 200, 0, 0));
-			}
-			to {
-				opacity: 0.7;
-				transform: scale(1);
-				filter: drop-shadow(0 0 12px rgba(255, 200, 0, 0.6));
-			}
 		}
 
 		/* ====================================================================
