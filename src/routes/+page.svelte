@@ -2501,7 +2501,8 @@
 						🐧 Penguin
 					</button>
 
-					<!-- HAUNTED -->
+					<!-- HAUNTED (Hidden on mobile) -->
+					{#if !isMobileDevice()}
 					<button
 						class="preset-button"
 						class:active={selectedThemePreset === 'haunted'}
@@ -2510,6 +2511,7 @@
 					>
 						👻 HAUNTED MODE
 					</button>
+					{/if}
 				</div>
 			</section>
 
@@ -3331,8 +3333,8 @@
 		/* Spraypaint tag images - positioned to look "wrapped on" the footer */
 		.spraypaint-left {
 			position: absolute;
-			left: 40px;           /* Closer to center */
-			bottom: -40px;        /* Partially cut off at bottom */
+			left: 5%;           /* Closer to center */
+			top: 5%;        /* Partially cut off at bottom */
 			width: 300px;         /* Larger size */
 			transform: rotate(-15deg);  /* Tilted left for natural spraypaint look */
 			opacity: 0.7;
@@ -3342,8 +3344,8 @@
 
 		.spraypaint-right {
 			position: absolute;
-			right: 40px;          /* Closer to center */
-			bottom: -50px;        /* Partially cut off at bottom */
+			right: 5%;          /* Closer to center */
+			top: 2%;        /* Partially cut off at bottom */
 			width: 280px;         /* Larger size */
 			transform: rotate(12deg);   /* Tilted right for natural spraypaint look */
 			opacity: 0.7;
@@ -4125,29 +4127,166 @@
 			}
 		}
 
-		/* Tablet and smaller */
+		/* Mobile devices - vertical stacking layout */
 		@media (max-width: 768px) {
 			.app-container {
 				grid-template-columns: 1fr; /* Full width, stack vertically */
-				grid-template-rows: auto 1fr auto auto; /* Add row for sidebar */
-			}
-
-			.history-sidebar {
-				max-height: 200px; /* Limit mobile sidebar height */
+				grid-template-rows: auto auto auto auto; /* Header, Main, Sidebar, Footer */
+				height: auto;
 				overflow-y: auto;
+				overflow-x: hidden;
 			}
 
-			.wheel-section {
+			header {
+				padding: 0.75rem 1rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.75rem;
+				align-items: center;
+			}
+			
+			.theme-button {
+				width: 100%;
+				max-width: 300px;
+			}
+
+			/* Order: 1. Link input at top */
+			.google-docs-input {
+				order: 1;
 				padding: 1rem;
 			}
 
+			/* Order: 2. Wheel section */
+			.wheel-section {
+				order: 2;
+				padding: 1rem;
+				min-height: auto;
+			}
+
+			/* Order: 3. History sidebar becomes full-width section */
+			.history-sidebar {
+				order: 3;
+				max-height: 300px; /* Limit mobile sidebar height */
+				overflow-y: auto;
+				border-left: none;
+				border-top: 2px solid;
+				padding: 1rem;
+			}
+
+			/* Order: 4. Footer at bottom */
+			footer {
+				order: 4;
+				padding: 1rem;
+			}
+
+			/* Adjust main to be flex container for proper ordering */
+			main {
+				display: flex;
+				flex-direction: column;
+				overflow-y: visible;
+			}
+
+			/* Typography adjustments */
 			h1 {
 				font-size: 1.5rem;
+			}
+
+			h2 {
+				font-size: 1.25rem;
 			}
 
 			button {
 				font-size: 0.875rem;
 				padding: 0.5rem 1rem;
+			}
+
+			/* Hide horror mode elements on mobile */
+			.lantern-overlay,
+			.gas-can,
+			.ghoul-sprite,
+			.fuel-gauge {
+				display: none !important;
+			}
+
+			/* Make canvas responsive */
+			canvas {
+				max-width: 100%;
+				height: auto;
+			}
+
+			/* Adjust multi-spin controls */
+			.multi-spin-controls {
+				flex-wrap: wrap;
+				justify-content: center;
+				gap: 0.5rem;
+			}
+
+			.custom-spin-container {
+				width: 100%;
+				justify-content: center;
+			}
+			
+			/* Scale down spraypaint tags for mobile */
+			.spraypaint-left {
+				width: 120px;
+				left: -20px;
+				top: -10px;
+			}
+			
+			.spraypaint-right {
+				width: 110px;
+				right: -15px;
+				top: -15px;
+			}
+			
+			/* Better mobile spacing */
+			.google-docs-input {
+				padding: 0.75rem;
+			}
+			
+			.link-input {
+				font-size: 0.875rem;
+				padding: 0.5rem;
+			}
+			
+			.refresh-button {
+				padding: 0.5rem 0.75rem;
+				font-size: 0.875rem;
+			}
+			
+			/* Footer text sizing */
+			.footer-main {
+				font-size: 1rem;
+			}
+			
+			.footer-small {
+				font-size: 0.8rem;
+			}
+			
+			/* Ticker sizing */
+			.ticker-container {
+				padding: 0.5rem 1rem;
+			}
+			
+			.ticker-text {
+				font-size: 1.5rem;
+			}
+			
+			/* Multi-spin button sizing */
+			.multi-spin-btn {
+				padding: 0.4rem 0.8rem;
+				font-size: 0.875rem;
+			}
+			
+			.custom-spin-input {
+				width: 60px;
+				padding: 0.4rem;
+				font-size: 0.875rem;
+			}
+			
+			.custom-spin-btn {
+				padding: 0.4rem 0.8rem;
+				font-size: 0.875rem;
 			}
 		}
 
