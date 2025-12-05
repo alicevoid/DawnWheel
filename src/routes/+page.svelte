@@ -26,6 +26,9 @@
 	import horrorResultSfx from '$lib/horror_result.ogg';
 	import woodWheelSfx from '$lib/wood_wheel.ogg';
 	import KICK13Sfx from '$lib/KICK_13.ogg';
+	import taikoDrumSfx from '$lib/taiko_drum.ogg';
+	import alien1Sfx from '$lib/alien_1.ogg';
+	import monkeySfx from '$lib/monkey.ogg';
 
 	// Marionette scream SFX (random one plays before reset)
 	import mar01Sfx from '$lib/Mar01.ogg';
@@ -109,6 +112,7 @@
 	let sfxEnabled = $state(true); // Master SFX toggle
 	let wheelClickEnabled = $state(true); // Wheel click sound
 	let wheelClickSound = $state('rimshot'); // 'wheel_click' or 'rimshot'
+	let victorySound = $state('alien'); // 'victory', 'alien', 'monkey', 'horror_result'
 	let victoryEnabled = $state(true); // Victory sound
 	let sfxVolume = $state(0.2); // Master volume (0-1)
 
@@ -1926,8 +1930,8 @@
 				audio.onerror = () => reject(new Error('Failed to load audio'));
 			});
 
-			if (audio.duration > 2.0) {
-				alert(`Audio too long (${audio.duration.toFixed(2)}s). Please use an audio file that is 1 second or shorter.`);
+			if (audio.duration > 12.0) {
+				alert(`Audio too long (${audio.duration.toFixed(2)}s). Please use an audio file that is 12 seconds or shorter.`);
 				input.value = ''; // Clear the file input
 				return;
 			}
@@ -2017,6 +2021,8 @@
 			soundFile = woodWheelSfx;
 		} else if (wheelClickSound === 'kick_13') {
 			soundFile = KICK13Sfx;
+		} else if (wheelClickSound === 'taiko_drum') {
+			soundFile = taikoDrumSfx;
 		} else {
 			soundFile = wheelClickSfx;
 		}
@@ -2024,6 +2030,25 @@
 			wheelClickAudioPool.push(new Audio(soundFile));
 		}
 		wheelClickPoolIndex = 0;
+	}
+
+	function loadVictorySound() {
+		let soundFile;
+		if (victorySound === 'custom' && customVictoryDataUrl) {
+			soundFile = customVictoryDataUrl;
+		} else if (victorySound === 'alien') {
+			soundFile = alien1Sfx;
+		} else if (victorySound === 'monkey') {
+			soundFile = monkeySfx;
+		} else if (victorySound === 'horror_result') {
+			soundFile = horrorResultSfx;
+		} else {
+			soundFile = victorySfx;  // Default 'victory' option
+		}
+		if (victoryAudio) {
+			victoryAudio.src = soundFile;
+			victoryAudio.load();
+		}
 	}
 
 	// Alias for calling from upload handlers
@@ -2071,6 +2096,7 @@
 		// Initialize audio instances (must be done client-side to avoid SSR issues)
 		loadWheelClickPool();
 		victoryAudio = new Audio(victorySfx);
+		loadVictorySound();  // Load the selected victory sound (default: alien)
 
 		// Initialize horror mode audio
 		horrorBgAudio = new Audio(horrorBgSfx);
@@ -2392,7 +2418,7 @@
 
 			<section class="spin-controls" style="border-color: {primaryColor};">
 				<div class="multi-spin-header">
-					<h3 style="color: {primaryColor};">Multi Spin</h3>
+					<h3 style="color: {secondaryColor};">Multi Spin</h3>
 					<div class="multi-spin-buttons">
 						<button style="border-color: {primaryColor}; color: {primaryColor};" onclick={() => spin(2)} disabled={isSpinning}>2</button>
 						<button style="border-color: {primaryColor}; color: {primaryColor};" onclick={() => spin(3)} disabled={isSpinning}>3</button>
@@ -2698,6 +2724,7 @@
 							<option value="rimshot">Rimshot</option>
 							<option value="wood_wheel">Wood Creak</option>
 							<option value="kick_13">KICK 13</option>
+							<option value="taiko_drum">Taiko Drum</option>
 							{#if customWheelClickDataUrl}
 								<option value="custom">📁 Custom Upload</option>
 							{/if}
@@ -2717,24 +2744,25 @@
 				<div class="upload-setting-compact">
 					<label class="checkbox-label">
 						<input type="checkbox" bind:checked={victoryEnabled} disabled={!sfxEnabled} />
-						<span style="color: {primaryColor};">Victory Sound</span>
+						<span style="color: {primaryColor};">Results Sound</span>
 					</label>
 					<div class="upload-row">
 						<input type="file" accept="audio/*" style="border-color: {primaryColor};" onchange={handleVictoryUpload} disabled={!sfxEnabled || !victoryEnabled} />
 						<select
-							bind:value={customVictoryDataUrl}
+							bind:value={victorySound}
 							disabled={!sfxEnabled || !victoryEnabled}
 							style="border-color: {primaryColor};"
 							onchange={() => {
-								if (victoryAudio && customVictoryDataUrl) {
-									victoryAudio.src = customVictoryDataUrl;
-									victoryAudio.load();
+								if (victoryAudio) {
+									loadVictorySound();
 								}
 							}}
 						>
-							<option value={null}>Victory</option>
+							<option value="victory">Victory</option>
+							<option value="alien">Alien</option>
+							<option value="monkey">Monkey</option>
 							{#if customVictoryDataUrl}
-								<option value={customVictoryDataUrl}>📁 Custom Upload</option>
+								<option value="custom">📁 Custom Upload</option>
 							{/if}
 						</select>
 					</div>
@@ -3281,7 +3309,7 @@
 		.history-item-content {
 			display: flex;
 			justify-content: space-between;
-			align-items: center;
+			align-items: flex-start;  /* Allow vertical expansion instead of horizontal */
 			gap: 0.5rem;
 			margin-bottom: 0.5rem;
 		}
@@ -3848,7 +3876,7 @@
 		.result-content {
 			display: flex;
 			justify-content: space-between;
-			align-items: center;
+			align-items: flex-start;  /* Allow vertical expansion instead of horizontal */
 			gap: 1rem;
 		}
 
