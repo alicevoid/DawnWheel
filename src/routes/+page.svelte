@@ -1701,6 +1701,22 @@
 				console.error('Failed to load theme:', e);
 			}
 		}
+
+		// Force non-haunted theme on mobile devices
+		if (isMobileDevice() && selectedThemePreset === 'haunted') {
+			console.log('[MOBILE] Horror mode disabled on mobile device');
+			selectedThemePreset = 'penguin';
+			applyThemePreset('penguin');
+		}
+	}
+
+	function isMobileDevice(): boolean {
+		if (typeof window === 'undefined') return false;
+		// Check for touch device and small screen
+		return (
+			('ontouchstart' in window || navigator.maxTouchPoints > 0) &&
+			window.innerWidth <= 768
+		);
 	}
 
 	function saveUserTheme() {
@@ -3327,7 +3343,7 @@
 			border-top: 2px solid #ccc;
 			background: #f9f9f9;
 			position: relative;     /* Allows absolute positioning of spraypaint images */
-			overflow-x: hidden;     /* Clip sides only - allow images to spill over top */
+			overflow: hidden;       /* Clip all overflow - no scrollbars */
 		}
 
 		/* Spraypaint tag images - positioned to look "wrapped on" the footer */
