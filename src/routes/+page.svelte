@@ -4166,8 +4166,8 @@
 			/* Order: 3. History sidebar becomes full-width section */
 			.history-sidebar {
 				order: 3;
-				max-height: 300px; /* Limit mobile sidebar height */
-				overflow-y: auto;
+				max-height: none; /* Allow full height - scroll page to see */
+				overflow-y: visible;
 				border-left: none;
 				border-top: 2px solid;
 				padding: 1rem;
@@ -4226,11 +4226,9 @@
 				justify-content: center;
 			}
 			
-			/* Scale down spraypaint tags for mobile */
+			/* Spraypaint tags for mobile - only show right tag */
 			.spraypaint-left {
-				width: 120px;
-				left: -20px;
-				top: -10px;
+				display: none; /* Hide left spraypaint on mobile */
 			}
 			
 			.spraypaint-right {
