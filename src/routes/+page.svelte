@@ -14,7 +14,7 @@
 	import faviconImg from '$lib/SMM_logo.ico';
 	import wheelClickSfx from '$lib/wheel_click.ogg';
 	import rimClickSfx from '$lib/rim_click.ogg';
-	import victorySfx from '$lib/victory.ogg';
+	import resultSfx from '$lib/victory.ogg';
 
 	// Horror Mode Audio
 	import refillSfx from '$lib/refill.ogg';
@@ -96,12 +96,13 @@
 	let customBackgroundWallpaper = $state('arctic_bg.jpg');
 	let customWheelCenterImage = $state('penguin.jpg');
 	let customWheelClickSound = $state('rimshot');
+	let customResultSound = $state('alien');  // Default to alien for custom theme
 
 	// Custom upload data URLs (for custom theme)
 	let customWallpaperDataUrl = $state<string | null>(null);
 	let customCenterImageDataUrl = $state<string | null>(null);
 	let customWheelClickDataUrl = $state<string | null>(null);
-	let customVictoryDataUrl = $state<string | null>(null);
+	let customResultDataUrl = $state<string | null>(null);
 
 	// Responsive canvas sizing
 	let canvasSize = $state(500); // Default size, will be updated dynamically
@@ -112,14 +113,14 @@
 	let sfxEnabled = $state(true); // Master SFX toggle
 	let wheelClickEnabled = $state(true); // Wheel click sound
 	let wheelClickSound = $state('rimshot'); // 'wheel_click' or 'rimshot'
-	let victorySound = $state('alien'); // 'victory', 'alien', 'monkey', 'horror_result'
-	let victoryEnabled = $state(true); // Victory sound
+	let resultSound = $state('alien'); // 'victory', 'alien', 'monkey', 'horror_result'
+	let resultEnabled = $state(true); // Result sound
 	let sfxVolume = $state(0.2); // Master volume (0-1)
 
 	// Audio instances (created on mount to avoid SSR issues)
 	let wheelClickAudioPool: HTMLAudioElement[] = []; // Pool of 10 instances for overlapping
 	let wheelClickPoolIndex = 0; // Round-robin index
-	let victoryAudio: HTMLAudioElement;
+	let resultAudio: HTMLAudioElement;
 
 	// Movie data - default to 1-100 for testing (will be replaced by Google Docs data later)
 	let movies = $state(Array.from({ length: 100 }, (_, i) => (i + 1).toString()));
@@ -842,17 +843,28 @@
 		});
 	}
 
-	function playVictory() {
-		console.log('Playing victory sound effect');
+	function playResult() {
+		console.log('🔊 [RESULT SOUND] playResult() called');
+		console.log('🔊 [RESULT SOUND] resultSound:', resultSound);
+		console.log('🔊 [RESULT SOUND] selectedThemePreset:', selectedThemePreset);
+		console.log('🔊 [RESULT SOUND] sfxEnabled:', sfxEnabled, 'resultEnabled:', resultEnabled);
 
-		if (!sfxEnabled || !victoryEnabled) return;
+		if (!sfxEnabled || !resultEnabled) {
+			console.log('🔊 [RESULT SOUND] Skipping - sound disabled');
+			return;
+		}
 
-		// Choose appropriate victory sound based on theme
+		// Choose appropriate result sound based on theme
 		const audioToPlay = selectedThemePreset === 'haunted'
 			? horrorResultAudio
-			: victoryAudio;
+			: resultAudio;
 
-		if (!audioToPlay) return;
+		if (!audioToPlay) {
+			console.log('🔊 [RESULT SOUND] ERROR: audioToPlay is null!');
+			return;
+		}
+
+		console.log('🔊 [RESULT SOUND] Playing audio.src:', audioToPlay.src);
 
 		audioToPlay.currentTime = 0;
 		audioToPlay.volume = sfxVolume;
@@ -1374,6 +1386,9 @@
 			wheelCenterImage = 'penguin.jpg';
 			// Set wheel click sound for penguin theme
 			wheelClickSound = 'rimshot';
+			// Set result sound for penguin theme
+			resultSound = 'alien';
+			loadResultSound();
 
 		} else if (preset === 'haunted') {
 
@@ -1629,9 +1644,9 @@
 			isSpinning = false;
 			drawWheel();
 
-			// Play victory sound when wheel stops
-			// (playVictory now handles horror mode automatically)
-			playVictory();
+			// Play result sound when wheel stops
+			// (playResult now handles horror mode automatically)
+			playResult();
 
 			// Collect results based on actual ticker position
 			const results: string[] = [];
@@ -1759,10 +1774,11 @@
 			backgroundWallpaper: customBackgroundWallpaper,
 			wheelCenterImage: customWheelCenterImage,
 			wheelClickSound: customWheelClickSound,
+			resultSound: customResultSound,
 			customWallpaperDataUrl,
 			customCenterImageDataUrl,
 			customWheelClickDataUrl,
-			customVictoryDataUrl
+			customResultDataUrl
 		};
 		localStorage.setItem('slippymud_user_theme', JSON.stringify(userTheme));
 		console.log('🔵 [SAVE] Saved to localStorage:', userTheme);
@@ -1783,10 +1799,11 @@
 				customBackgroundWallpaper = userTheme.backgroundWallpaper;
 				customWheelCenterImage = userTheme.wheelCenterImage;
 				customWheelClickSound = userTheme.wheelClickSound;
+				customResultSound = userTheme.resultSound || 'alien';  // Default to alien if not saved
 				customWallpaperDataUrl = userTheme.customWallpaperDataUrl || null;
 				customCenterImageDataUrl = userTheme.customCenterImageDataUrl || null;
 				customWheelClickDataUrl = userTheme.customWheelClickDataUrl || null;
-				customVictoryDataUrl = userTheme.customVictoryDataUrl || null;
+				customResultDataUrl = userTheme.customResultDataUrl || null;
 
 				// Copy to active variables
 				primaryColor = customPrimaryColor;
@@ -1948,7 +1965,7 @@
 		reader.readAsDataURL(file);
 	}
 
-	async function handleVictoryUpload(event: Event) {
+	async function handleResultUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
 		if (!file) return;
@@ -1988,14 +2005,14 @@
 			}
 
 			// Duration is valid, proceed
-			customVictoryDataUrl = dataUrl;
+			customResultDataUrl = dataUrl;
 			if (selectedThemePreset === 'user') {
 				saveUserTheme();
 			}
 			// Reinitialize victory audio
-			if (victoryAudio) {
-				victoryAudio.src = customVictoryDataUrl;
-				victoryAudio.load();
+			if (resultAudio) {
+				resultAudio.src = customResultDataUrl;
+				resultAudio.load();
 			}
 		};
 		reader.readAsDataURL(file);
@@ -2032,22 +2049,36 @@
 		wheelClickPoolIndex = 0;
 	}
 
-	function loadVictorySound() {
+	function loadResultSound() {
+		console.log('🔧 [LOAD SOUND] loadResultSound() called');
+		console.log('🔧 [LOAD SOUND] resultSound:', resultSound);
+		
 		let soundFile;
-		if (victorySound === 'custom' && customVictoryDataUrl) {
-			soundFile = customVictoryDataUrl;
-		} else if (victorySound === 'alien') {
+		if (resultSound === 'custom' && customResultDataUrl) {
+			soundFile = customResultDataUrl;
+			console.log('🔧 [LOAD SOUND] Using custom upload');
+		} else if (resultSound === 'alien') {
 			soundFile = alien1Sfx;
-		} else if (victorySound === 'monkey') {
+			console.log('🔧 [LOAD SOUND] Using ALIEN sound');
+		} else if (resultSound === 'monkey') {
 			soundFile = monkeySfx;
-		} else if (victorySound === 'horror_result') {
+			console.log('🔧 [LOAD SOUND] Using MONKEY sound');
+		} else if (resultSound === 'horror_result') {
 			soundFile = horrorResultSfx;
+			console.log('🔧 [LOAD SOUND] Using HORROR RESULT sound');
 		} else {
-			soundFile = victorySfx;  // Default 'victory' option
+			soundFile = resultSfx;  // Default 'victory' option
+			console.log('🔧 [LOAD SOUND] Using VICTORY sound (default fallback)');
 		}
-		if (victoryAudio) {
-			victoryAudio.src = soundFile;
-			victoryAudio.load();
+		
+		console.log('🔧 [LOAD SOUND] soundFile:', soundFile);
+		
+		if (resultAudio) {
+			resultAudio.src = soundFile;
+			resultAudio.load();
+			console.log('🔧 [LOAD SOUND] Loaded into resultAudio.src:', resultAudio.src);
+		} else {
+			console.log('🔧 [LOAD SOUND] ERROR: resultAudio is null!');
 		}
 	}
 
@@ -2095,8 +2126,8 @@
 	onMount(() => {
 		// Initialize audio instances (must be done client-side to avoid SSR issues)
 		loadWheelClickPool();
-		victoryAudio = new Audio(victorySfx);
-		loadVictorySound();  // Load the selected victory sound (default: alien)
+		resultAudio = new Audio(resultSfx);
+		loadResultSound();  // Load the selected result sound (default: alien)
 
 		// Initialize horror mode audio
 		horrorBgAudio = new Audio(horrorBgSfx);
@@ -2284,13 +2315,13 @@
 
 	// Watch for custom victory audio changes
 	$effect(() => {
-		// Track customVictoryDataUrl to trigger reload
-		customVictoryDataUrl;
+		// Track customResultDataUrl to trigger reload
+		customResultDataUrl;
 
-		if (victoryAudio) {
+		if (resultAudio) {
 			// Reload victory audio with custom or default sound
-			victoryAudio.src = customVictoryDataUrl || victorySfx;
-			victoryAudio.load();
+			resultAudio.src = customResultDataUrl || resultSfx;
+			resultAudio.load();
 		}
 	});
 
@@ -2740,41 +2771,39 @@
 					{/if}
 				</div>
 
-				<!-- Victory Sound -->
+				<!-- Results Sound -->
 				<div class="upload-setting-compact">
 					<label class="checkbox-label">
-						<input type="checkbox" bind:checked={victoryEnabled} disabled={!sfxEnabled} />
+						<input type="checkbox" bind:checked={resultEnabled} disabled={!sfxEnabled} />
 						<span style="color: {primaryColor};">Results Sound</span>
 					</label>
 					<div class="upload-row">
-						<input type="file" accept="audio/*" style="border-color: {primaryColor};" onchange={handleVictoryUpload} disabled={!sfxEnabled || !victoryEnabled} />
+						<input type="file" accept="audio/*" style="border-color: {primaryColor};" onchange={handleResultUpload} disabled={!sfxEnabled || !resultEnabled} />
 						<select
-							bind:value={victorySound}
-							disabled={!sfxEnabled || !victoryEnabled}
+							bind:value={resultSound}
+							disabled={!sfxEnabled || !resultEnabled}
 							style="border-color: {primaryColor};"
 							onchange={() => {
-								if (victoryAudio) {
-									loadVictorySound();
+								if (resultAudio) {
+									loadResultSound();
 								}
 							}}
 						>
 							<option value="victory">Victory</option>
 							<option value="alien">Alien</option>
 							<option value="monkey">Monkey</option>
-							{#if customVictoryDataUrl}
+							{#if customResultDataUrl}
 								<option value="custom">📁 Custom Upload</option>
 							{/if}
 						</select>
 					</div>
-					{#if customVictoryDataUrl}
+					{#if customResultDataUrl}
 						<button class="remove-custom-btn" style="border-color: {primaryColor}; color: {primaryColor};" onclick={() => {
-							customVictoryDataUrl = null;
+							customResultDataUrl = null;
+							resultSound = 'alien';  // Reset to default alien sound
 							if (selectedThemePreset === 'user') saveUserTheme();
-							if (victoryAudio) {
-								victoryAudio.src = victorySfx;
-								victoryAudio.load();
-							}
-						}}>Remove Custom Victory</button>
+							loadResultSound();  // Reload with alien sound
+						}}>Remove Custom Result</button>
 					{/if}
 				</div>
 			</section>
