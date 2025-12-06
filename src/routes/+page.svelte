@@ -2276,7 +2276,7 @@
 			<section class="google-docs-input" style="border-color: {primaryColor};">
 				<div class="link-input-container">
 					<button class="refresh-button" style="border-color: {primaryColor}; color: {primaryColor};" onclick={handleRefresh} disabled={!googleDocsLink.trim()}>
-						Refresh
+						<b>Refresh</b>
 					</button>
 					<input
 						type="text"
