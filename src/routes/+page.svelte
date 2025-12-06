@@ -3,6 +3,8 @@
 	// SLIPPYMUDWHEEL - Movie Wheel Spinner
 	// ============================================================================
 
+	import faviconImg from '$lib/SMM_logo.ico';
+
 	import { onMount, onDestroy } from 'svelte';
 	import arcticBg from '$lib/arctic_bg.jpg';
 	import creepyBg from '$lib/creepy.jpg';
@@ -2254,6 +2256,8 @@
 
 <svelte:head>
 	<title>SlippyMudWheel :3</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="icon" type="image/png" href={faviconImg} />
 </svelte:head>
 
 		<!-- ============================================================================
