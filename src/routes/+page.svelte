@@ -3,13 +3,11 @@
 	// SLIPPYMUDWHEEL - Movie Wheel Spinner
 	// ============================================================================
 
-	import faviconImg from '$lib/SMM_logo.ico';
-
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import arcticBg from '$lib/arctic_bg.jpg';
-	import creepyBg from '$lib/creepy.jpg';
+	// import creepyBg from '$lib/creepy.jpg'; // Lazy loaded
 	import penguinImg from '$lib/penguin.jpg';
-	import handsImg from '$lib/hands.jpg';
+	// import handsImg from '$lib/hands.jpg'; // Lazy loaded
 	import gasCanImg from '$lib/gas_can.png';
 	import blackTag from '$lib/black.png';
 	import black2Tag from '$lib/black2.png';
@@ -17,32 +15,32 @@
 	import rimClickSfx from '$lib/rim_click.ogg';
 	import victorySfx from '$lib/victory.ogg';
 
-	// Horror Mode Audio
-	import refillSfx from '$lib/refill.ogg';
-	import horrorBgSfx from '$lib/horror_bg.ogg';
-	import fnafHallwaySfx from '$lib/fnaf2_hallway_sfx.ogg';
-	import fnafJumpscareSfx from '$lib/fnaf2_puppet_js.ogg';
-	import fnafJumpscareGif from '$lib/fnaf_jumpscare.gif';
-	import horrorStartSfx from '$lib/horror_start.ogg';
-	import horrorResultSfx from '$lib/horror_result.ogg';
+	// Horror Mode Audio - Lazy loaded (except wood wheel which is used for haunted theme wheel click)
+	// import refillSfx from '$lib/refill.ogg'; // Lazy loaded
+	// import horrorBgSfx from '$lib/horror_bg.ogg'; // Lazy loaded
+	// import fnafHallwaySfx from '$lib/fnaf2_hallway_sfx.ogg'; // Lazy loaded
+	// import fnafJumpscareSfx from '$lib/fnaf2_puppet_js.ogg'; // Lazy loaded
+	// import fnafJumpscareGif from '$lib/fnaf_jumpscare.gif'; // Lazy loaded
+	// import horrorStartSfx from '$lib/horror_start.ogg'; // Lazy loaded
+	// import horrorResultSfx from '$lib/horror_result.ogg'; // Lazy loaded
 	import woodWheelSfx from '$lib/wood_wheel.ogg';
 	import KICK13Sfx from '$lib/KICK_13.ogg';
 	import taikoDrumSfx from '$lib/taiko_drum.ogg';
 	import alien1Sfx from '$lib/alien_1.ogg';
 	import monkeySfx from '$lib/monkey.ogg';
 
-	// Marionette scream SFX (random one plays before reset)
-	import mar01Sfx from '$lib/Mar01.ogg';
-	import mar02Sfx from '$lib/Mar02.ogg';
-	import mar03Sfx from '$lib/Mar03.ogg';
-	import mar04Sfx from '$lib/Mar04.ogg';
-	import mar05Sfx from '$lib/Mar05.ogg';
+	// Marionette scream SFX (random one plays before reset) - Lazy loaded
+	// import mar01Sfx from '$lib/Mar01.ogg'; // Lazy loaded
+	// import mar02Sfx from '$lib/Mar02.ogg'; // Lazy loaded
+	// import mar03Sfx from '$lib/Mar03.ogg'; // Lazy loaded
+	// import mar04Sfx from '$lib/Mar04.ogg'; // Lazy loaded
+	// import mar05Sfx from '$lib/Mar05.ogg'; // Lazy loaded
 
-	// Ghoul encounter assets
+	// Ghoul encounter assets - Lazy loaded
 	import ghoulImg from '$lib/ghoul.png';
 	import ghoulGif from '$lib/ghoul.gif';
-	import ghoulSfx from '$lib/ghoul.ogg';
-	import heartbeatSfx from '$lib/heartbeat.ogg';
+	// import ghoulSfx from '$lib/ghoul.ogg'; // Lazy loaded
+	// import heartbeatSfx from '$lib/heartbeat.ogg'; // Lazy loaded
 
 
 	// ============================================================================
@@ -62,7 +60,7 @@
 	let showCustomSettings = $state(false);
 
 	// Theme preset state
-	let selectedThemePreset = $state<'penguin' | 'haunted' | 'user'>('user'); // Default to user theme
+	let selectedThemePreset = $state<'penguin' | 'haunted' | 'monkey' | 'user'>('user'); // Default to user theme
 
 	// Theme state - Active theme (whatever is currently selected)
 	let primaryColor = $state('#1E90FF'); // Dodger blue
@@ -107,6 +105,24 @@
 	let wheelClickAudioPool: HTMLAudioElement[] = []; // Pool of 10 instances for overlapping
 	let wheelClickPoolIndex = 0; // Round-robin index
 	let resultAudio: HTMLAudioElement;
+
+	// ========================================================================
+	// LAZY LOADING STATE
+	// ========================================================================
+	let horrorAssetsLoaded = $state(false);
+	let horrorAssetsLoading = $state(false);
+	let monkeyAssetsLoaded = $state(false);
+	let monkeyAssetsLoading = $state(false);
+
+	// Lazy-loaded asset URLs (populated when horror mode assets load)
+	let horrorBackgroundUrl = $state<string | null>(null);
+	let horrorCenterImageUrl = $state<string | null>(null);
+	let horrorJumpscareGifUrl = $state<string | null>(null);
+
+	// Lazy-loaded monkey mode asset URLs
+	let monkeyBackgroundUrl = $state<string | null>(null);
+	let monkeyCenterImageUrl = $state<string | null>(null);
+	let monkeyWheelClickUrl = $state<string | null>(null);
 
 	// Movie data - default to 1-100 for testing (will be replaced by Google Docs data later)
 	let movies = $state(Array.from({ length: 100 }, (_, i) => (i + 1).toString()));
@@ -226,6 +242,78 @@
 	// Gas can cooldown system (NEW - Phase 4)
 	let gasCanCooldown = $state(false); // Is gas can on cooldown?
 	let gasCanCooldownTimer: number | null = null;
+
+	// ========================================================================
+	// MONKEY MODE CONFIGURATION
+	// ========================================================================
+	const monkeyConfig = {
+		// Quadrant system
+		quadrantCheckInterval: 100, // Update favor every 100ms
+		stateChangeIntervalMin: 3000, // 3 seconds min
+		stateChangeIntervalMax: 11000, // 11 seconds max
+
+		// Audio feedback
+		feedbackSfxIntervalMin: 5000, // 5 seconds min
+		feedbackSfxIntervalMax: 15000, // 15 seconds max
+		feedbackSliceDurationMin: 3000, // 3 seconds
+		feedbackSliceDurationMax: 5000, // 5 seconds
+
+		// Favor thresholds
+		favorBallingThreshold: 100,
+		favorAngryThreshold: -100,
+		favorVideoThreshold: 100,
+	};
+
+	// Monkey Mode state variables
+	let monkeyModeActive = $state(false);
+	let monkeyFavor = $state(0); // Internal favor tracking (updates every 100ms)
+	let monkeyFavorDisplay = $state(0); // Displayed favor (updates every second)
+	let monkeyFavorLastCheck = $state(0); // For tracking delta since last SFX
+	let monkeyThought = $state<string>(''); // Current emotional state text
+
+	// Quadrant tracking
+	type QuadrantState = 'auspicious' | 'ominous' | 'grounded' | 'benevolent' |
+	                     'eerie' | 'unfortunate' | 'subtle' | 'foolish' | 'normal';
+
+	interface QuadrantData {
+		state: QuadrantState;
+		timeInState: number; // Seconds spent in current state
+		stateTimer: number | null; // Interval ID for state changes
+		initialDirection?: 'gain' | 'loss'; // For subtle/foolish
+	}
+
+	let quadrants = $state<{
+		topLeft: QuadrantData;
+		topRight: QuadrantData;
+		bottomLeft: QuadrantData;
+		bottomRight: QuadrantData;
+	}>({
+		topLeft: { state: 'normal', timeInState: 0, stateTimer: null },
+		topRight: { state: 'normal', timeInState: 0, stateTimer: null },
+		bottomLeft: { state: 'normal', timeInState: 0, stateTimer: null },
+		bottomRight: { state: 'normal', timeInState: 0, stateTimer: null },
+	});
+
+	let currentQuadrant = $state<'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'>('topLeft');
+
+	// Audio/Video
+	let monkeyBgMusic: HTMLAudioElement | null = null;
+	let monkeyGoodSfx: HTMLAudioElement | null = null;
+	let monkeyBadSfx: HTMLAudioElement | null = null;
+	let feedbackSfxTimer: number | null = null;
+	let favorUpdateInterval: number | null = null;
+	let favorDisplayInterval: number | null = null;
+
+	// Video reward
+	let showMonkeyVideo = $state(false);
+	let monkeyVideoOpacity = $state(0);
+	let monkeyVideoElement: HTMLVideoElement | null = null;
+	let monkeyVideoUrl = $state<string | null>(null);
+	let monkeyFadeToBlack = $state(false);
+	let monkeyFadeOpacity = $state(0);
+
+	// Legacy placeholders (for backward compatibility)
+	let targetQuadrant = $state<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('top-right');
 	let gasCanSpawning = $state(false); // Is gas can fading in? (NEW - Phase 4 Enhanced)
 	let gasCanFadeDuration = $state(3000); // Random fade-in duration (3-7 seconds)
 
@@ -312,8 +400,29 @@
 				startFuelDrain();
 				startFlickerAnimation();
 				if (horrorBgAudio) {
-					horrorBgAudio.currentTime = 0;
-					horrorBgAudio.play().catch(() => {});
+					// Start at random position (max 50% through track)
+					const playFromRandom = () => {
+						if (horrorBgAudio.duration && !isNaN(horrorBgAudio.duration)) {
+							const maxStartTime = horrorBgAudio.duration * 0.5;
+							const randomStartTime = Math.random() * maxStartTime;
+							horrorBgAudio.currentTime = randomStartTime;
+							horrorBgAudio.volume = hauntedConfig.bgMusicVolumeMin;
+							horrorBgAudio.play().catch(e => console.error('Failed to play horror music:', e));
+						} else {
+							// Fallback to beginning if duration unavailable
+							horrorBgAudio.currentTime = 0;
+							horrorBgAudio.volume = hauntedConfig.bgMusicVolumeMin;
+							horrorBgAudio.play().catch(e => console.error('Failed to play horror music:', e));
+						}
+					};
+
+					if (horrorBgAudio.readyState >= 2) {
+						// Audio metadata already loaded
+						playFromRandom();
+					} else {
+						// Wait for metadata to load
+						horrorBgAudio.addEventListener('loadedmetadata', playFromRandom, { once: true });
+					}
 				}
 				startTempoVariation();
 			}
@@ -758,12 +867,53 @@
 	function handleVisibilityChange() {
 
 		if (typeof document === 'undefined') return; // SSR guard
-		if (selectedThemePreset !== 'haunted') return;
 
-		if (document.hidden) {
-			pauseHorrorMode();
-		} else {
-			resumeHorrorMode();
+		// Handle haunted mode
+		if (selectedThemePreset === 'haunted') {
+			if (document.hidden) {
+				pauseHorrorMode();
+			} else {
+				resumeHorrorMode();
+			}
+		}
+
+		// Handle monkey mode
+		if (monkeyModeActive) {
+			if (document.hidden) {
+				// Tab became inactive - lose all favor
+				monkeyFavor = 0;
+				monkeyFavorLastCheck = 0;
+
+				// Pause quadrant timers
+				stopQuadrantTimer('topLeft');
+				stopQuadrantTimer('topRight');
+				stopQuadrantTimer('bottomLeft');
+				stopQuadrantTimer('bottomRight');
+
+				// Pause favor tracking
+				stopMonkeyFavorTracking();
+				stopFeedbackSfxLoop();
+				stopFavorDisplayUpdate();
+
+				// Pause background music
+				if (monkeyBgMusic) {
+					monkeyBgMusic.pause();
+				}
+			} else {
+				// Tab became active - resume
+				startQuadrantTimer('topLeft');
+				startQuadrantTimer('topRight');
+				startQuadrantTimer('bottomLeft');
+				startQuadrantTimer('bottomRight');
+
+				startMonkeyFavorTracking();
+				startFeedbackSfxLoop();
+				startFavorDisplayUpdate();
+
+				if (monkeyBgMusic) {
+					monkeyBgMusic.play().catch(() => {});
+				}
+			}
 		}
 	}
 
@@ -818,7 +968,7 @@
 		});
 	}
 
-	function playResult() {
+	async function playResult() {
 
 		if (!sfxEnabled || !resultEnabled) {
 			return;
@@ -1133,8 +1283,7 @@
 	if (typeof window !== 'undefined') {
 		penguinImage = new Image();
 		penguinImage.src = penguinImg;
-		handsImage = new Image();
-		handsImage.src = handsImg;
+		// handsImage will be set when horror assets are loaded
 	}
 
 	// Results modal state
@@ -1292,7 +1441,7 @@
 	// THEME SETTINGS MANAGEMENT
 	// ============================================================================
 
-	function applyThemePreset(preset: 'penguin' | 'haunted' | 'user') {
+	async function applyThemePreset(preset: 'penguin' | 'haunted' | 'monkey' | 'user') {
 		selectedThemePreset = preset;
 
 
@@ -1314,16 +1463,68 @@
 
 		} else if (preset === 'haunted') {
 
-			// Haunted Mode (Black & Red)
-			primaryColor = '#8B0000'; // Dark red
-			secondaryColor = '#000000'; // Black
-			wheelBackground = '#1a0000'; // Very dark red
-			selectedFont = 'Georgia';
-			wheelColors = ['#8B0000', '#FF0000', '#DC143C', '#B22222', '#A52A2A'];
-			backgroundWallpaper = 'creepy.jpg';
-			wheelCenterImage = 'hands.jpg';
-			// Set wheel click sound for haunted theme
-			wheelClickSound = 'wood_wheel';
+			// Load horror assets first
+			if (!horrorAssetsLoaded) {
+				await loadHorrorAssets();
+			}
+
+			// Only apply theme if assets loaded successfully
+			if (horrorAssetsLoaded) {
+				// Haunted Mode (Black & Red)
+				primaryColor = '#8B0000'; // Dark red
+				secondaryColor = '#000000'; // Black
+				wheelBackground = '#1a0000'; // Very dark red
+				selectedFont = 'Georgia';
+				wheelColors = ['#8B0000', '#FF0000', '#DC143C', '#B22222', '#A52A2A'];
+				backgroundWallpaper = 'creepy.jpg';
+				wheelCenterImage = 'hands.jpg';
+				// Set wheel click sound for haunted theme
+				wheelClickSound = 'wood_wheel';
+			} else {
+				// Loading failed, revert to penguin
+				selectedThemePreset = 'penguin';
+				applyThemePreset('penguin');
+				return;
+			}
+
+		} else if (preset === 'monkey') {
+
+			// Load monkey assets first
+			if (!monkeyAssetsLoaded) {
+				await loadMonkeyAssets();
+			}
+
+			if (monkeyAssetsLoaded) {
+				// Monkey Mode theme
+				primaryColor = '#32CD32'; // Lime green
+				secondaryColor = '#8B4513'; // Saddle brown
+				wheelBackground = '#2F4F2F'; // Dark green
+				selectedFont = 'Comic Sans MS, cursive';
+				wheelColors = ['#8B4513', '#A0522D', '#CD853F', '#DEB887', '#D2691E'];
+				backgroundWallpaper = 'custom'; // Use monkey_mode_bg.webp
+				wheelCenterImage = 'custom'; // Use monkey_mode_center.webp
+				wheelClickSound = 'custom'; // Will use monkey_mode_wheel.ogg
+				resultSound = 'monkey'; // Default monkey sound
+				loadResultSound(); // Load the monkey result sound
+
+				// Set custom assets
+				customWallpaperDataUrl = monkeyBackgroundUrl;
+				customCenterImageDataUrl = monkeyCenterImageUrl;
+				customWheelClickDataUrl = monkeyWheelClickUrl;
+
+				// Mark monkey mode as active
+				monkeyModeActive = true;
+
+				// Start background music if available
+				if (monkeyBgMusic) {
+					monkeyBgMusic.currentTime = 0;
+					monkeyBgMusic.play().catch(() => {});
+				}
+			} else {
+				selectedThemePreset = 'penguin';
+				applyThemePreset('penguin');
+				return;
+			}
 
 		} else if (preset === 'user') {
 
@@ -1486,6 +1687,11 @@
 
 		numberOfSpins = count;
 		isSpinning = true;
+
+		// Play monkey video immediately if favor >= 100
+		if (shouldPlayMonkeyVideo()) {
+			playMonkeyVideoReward();
+		}
 
 		// Pick a random target item for the wheel to land on
 		const randomTargetIndex = Math.floor(Math.random() * movies.length);
@@ -1922,6 +2128,682 @@
 	}
 
 	// ============================================================================
+	// IMPORT/EXPORT THEME
+	// ============================================================================
+
+	function exportTheme() {
+		const themeData = {
+			version: "1.0",
+			timestamp: new Date().toISOString(),
+			theme: {
+				primaryColor: customPrimaryColor,
+				secondaryColor: customSecondaryColor,
+				wheelBackground: customWheelBackground,
+				selectedFont: customSelectedFont,
+				wheelColors: [...customWheelColors],
+				backgroundWallpaper: customBackgroundWallpaper,
+				wheelCenterImage: customWheelCenterImage,
+				wheelClickSound: customWheelClickSound,
+				resultSound: customResultSound,
+				customAssets: {
+					wallpaper: customWallpaperDataUrl,
+					centerImage: customCenterImageDataUrl,
+					wheelClick: customWheelClickDataUrl,
+					result: customResultDataUrl
+				}
+			}
+		};
+
+		const jsonString = JSON.stringify(themeData, null, 2);
+		const blob = new Blob([jsonString], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = `slippymud-theme-${Date.now()}.json`;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function importTheme(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		if (!file.name.endsWith('.json')) {
+			alert('Please upload a valid JSON theme file');
+			return;
+		}
+
+		if (file.size > 10 * 1024 * 1024) {
+			alert('Theme file too large. Maximum size is 10MB');
+			return;
+		}
+
+		try {
+			const text = await file.text();
+			const themeData = JSON.parse(text);
+
+			if (!themeData.version || !themeData.theme) {
+				throw new Error('Invalid theme file structure');
+			}
+
+			const { theme } = themeData;
+
+			// Apply settings to custom theme
+			customPrimaryColor = theme.primaryColor || customPrimaryColor;
+			customSecondaryColor = theme.secondaryColor || customSecondaryColor;
+			customWheelBackground = theme.wheelBackground || customWheelBackground;
+			customSelectedFont = theme.selectedFont || customSelectedFont;
+			customWheelColors = theme.wheelColors || customWheelColors;
+			customBackgroundWallpaper = theme.backgroundWallpaper || customBackgroundWallpaper;
+			customWheelCenterImage = theme.wheelCenterImage || customWheelCenterImage;
+			customWheelClickSound = theme.wheelClickSound || customWheelClickSound;
+			customResultSound = theme.resultSound || customResultSound;
+
+			// Import custom assets if present
+			if (theme.customAssets) {
+				customWallpaperDataUrl = theme.customAssets.wallpaper || null;
+				customCenterImageDataUrl = theme.customAssets.centerImage || null;
+				customWheelClickDataUrl = theme.customAssets.wheelClick || null;
+				customResultDataUrl = theme.customAssets.result || null;
+			}
+
+			// Apply if on user preset
+			if (selectedThemePreset === 'user') {
+				loadUserTheme();
+			}
+
+			saveUserTheme();
+			alert('Theme imported successfully!');
+			drawWheel();
+
+		} catch (error) {
+			console.error('Failed to import theme:', error);
+			alert('Failed to import theme. Please ensure the file is a valid SlippyMudWheel theme export.');
+		}
+
+		input.value = '';
+	}
+
+	// ============================================================================
+	// LAZY LOADING SYSTEM
+	// ============================================================================
+
+	async function loadHorrorAssets() {
+		if (horrorAssetsLoaded || horrorAssetsLoading) return;
+
+		horrorAssetsLoading = true;
+
+		try {
+			const [
+				horrorBgModule,
+				creepyBgModule,
+				handsImgModule,
+				fnafJumpscareGifModule,
+				fnafJumpscareSfxModule,
+				fnafHallwaySfxModule,
+				refillSfxModule,
+				horrorStartSfxModule,
+				horrorResultSfxModule,
+				mar01Module,
+				mar02Module,
+				mar03Module,
+				mar04Module,
+				mar05Module,
+				ghoulSfxModule,
+				heartbeatSfxModule,
+			] = await Promise.all([
+				import('$lib/horror_bg.ogg'),
+				import('$lib/creepy.jpg'),
+				import('$lib/hands.jpg'),
+				import('$lib/fnaf_jumpscare.gif'),
+				import('$lib/fnaf2_puppet_js.ogg'),
+				import('$lib/fnaf2_hallway_sfx.ogg'),
+				import('$lib/refill.ogg'),
+				import('$lib/horror_start.ogg'),
+				import('$lib/horror_result.ogg'),
+				import('$lib/Mar01.ogg'),
+				import('$lib/Mar02.ogg'),
+				import('$lib/Mar03.ogg'),
+				import('$lib/Mar04.ogg'),
+				import('$lib/Mar05.ogg'),
+				import('$lib/ghoul.ogg'),
+				import('$lib/heartbeat.ogg'),
+			]);
+
+			// Initialize audio instances
+			horrorBgAudio = new Audio(horrorBgModule.default);
+			horrorBgAudio.loop = false; // Custom loop handling
+			horrorBgAudio.volume = hauntedConfig.bgMusicVolumeMin;
+
+			// Add custom loop handler - loop from beginning after first play
+			horrorBgAudio.addEventListener('ended', () => {
+				if (selectedThemePreset === 'haunted') {
+					horrorBgAudio.currentTime = 0;
+					horrorBgAudio.play().catch(() => {});
+				}
+			});
+
+			warningAudio = new Audio(fnafHallwaySfxModule.default);
+			warningAudio.loop = false;
+			warningAudio.volume = hauntedConfig.warningVolume;
+
+			jumpscareAudio = new Audio(fnafJumpscareSfxModule.default);
+
+			refillAudio = new Audio(refillSfxModule.default);
+			refillAudio.volume = hauntedConfig.refillVolume;
+
+			marionetteScreamAudios = [
+				new Audio(mar01Module.default),
+				new Audio(mar02Module.default),
+				new Audio(mar03Module.default),
+				new Audio(mar04Module.default),
+				new Audio(mar05Module.default)
+			];
+
+			horrorStartAudio = new Audio(horrorStartSfxModule.default);
+			horrorResultAudio = new Audio(horrorResultSfxModule.default);
+
+			heartbeatAudio = new Audio(heartbeatSfxModule.default);
+			heartbeatAudio.volume = hauntedConfig.warningVolume;
+			heartbeatAudio.loop = true;
+
+			ghoulJumpscareAudio = new Audio(ghoulSfxModule.default);
+
+			// Store image URLs
+			horrorBackgroundUrl = creepyBgModule.default;
+			horrorCenterImageUrl = handsImgModule.default;
+			horrorJumpscareGifUrl = fnafJumpscareGifModule.default;
+
+			// Preload hands image
+			if (typeof window !== 'undefined') {
+				handsImage = new Image();
+				handsImage.src = handsImgModule.default;
+			}
+
+			horrorAssetsLoaded = true;
+		} catch (error) {
+			console.error('Failed to load horror assets:', error);
+			alert('Failed to load horror mode assets. Please check your connection and try again.');
+			selectedThemePreset = 'penguin';
+		} finally {
+			horrorAssetsLoading = false;
+		}
+	}
+
+	async function loadMonkeyAssets() {
+		if (monkeyAssetsLoaded || monkeyAssetsLoading) return;
+
+		monkeyAssetsLoading = true;
+
+		try {
+			const imports = await Promise.all([
+				import('$lib/monkey_mode_bg.webp'),
+				import('$lib/monkey_mode_center.webp'),
+				import('$lib/monkey_mode_wheel.ogg'),
+				import('$lib/monkey_good.ogg'),
+				import('$lib/monkey_bad.ogg'),
+				import('$lib/monkey_rizz_edit_hq.webm'),
+			]);
+
+			const [bgModule, centerModule, wheelModule, goodModule, badModule, videoModule] = imports;
+
+			// Store URLs
+			monkeyBackgroundUrl = bgModule.default;
+			monkeyCenterImageUrl = centerModule.default;
+			monkeyWheelClickUrl = wheelModule.default;
+			monkeyVideoUrl = videoModule.default;
+
+			// Initialize audio with -24dB volume (approximately 6.25% volume)
+			monkeyGoodSfx = new Audio(goodModule.default);
+			monkeyGoodSfx.volume = 0.0625;
+			monkeyBadSfx = new Audio(badModule.default);
+			monkeyBadSfx.volume = 0.0625;
+
+			// Note: Background music removed for now - add monkey_mode_music.ogg if desired
+			// and uncomment the loading code
+
+			monkeyAssetsLoaded = true;
+		} catch (error) {
+			console.error('Failed to load monkey assets:', error);
+			alert('Failed to load monkey mode assets.');
+			selectedThemePreset = 'penguin';
+		} finally {
+			monkeyAssetsLoading = false;
+		}
+	}
+
+	// ============================================================================
+	// MONKEY MODE - Quadrant State System
+	// ============================================================================
+
+	function getRandomQuadrantState(): QuadrantState {
+		const rand = Math.random();
+
+		if (rand < 0.05) return 'auspicious';
+		if (rand < 0.10) return 'ominous';
+		if (rand < 0.15) return 'grounded';
+		if (rand < 0.20) return 'benevolent';
+		if (rand < 0.25) return 'eerie';
+		if (rand < 0.30) return 'unfortunate';
+		if (rand < 0.35) return 'subtle';
+		if (rand < 0.40) return 'foolish';
+		return 'normal'; // 60% chance
+	}
+
+	function changeQuadrantState(quadrant: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight') {
+		const newState = getRandomQuadrantState();
+		quadrants[quadrant].state = newState;
+		quadrants[quadrant].timeInState = 0;
+
+		// Set initial direction for subtle/foolish
+		if (newState === 'subtle' || newState === 'foolish') {
+			quadrants[quadrant].initialDirection = Math.random() > 0.5 ? 'gain' : 'loss';
+		}
+	}
+
+	function startQuadrantTimer(quadrant: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight') {
+		// Random interval between 3-11 seconds
+		const interval = monkeyConfig.stateChangeIntervalMin +
+		                 Math.random() * (monkeyConfig.stateChangeIntervalMax - monkeyConfig.stateChangeIntervalMin);
+
+		quadrants[quadrant].stateTimer = window.setTimeout(() => {
+			changeQuadrantState(quadrant);
+			startQuadrantTimer(quadrant); // Restart timer
+		}, interval);
+	}
+
+	function stopQuadrantTimer(quadrant: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight') {
+		if (quadrants[quadrant].stateTimer) {
+			clearTimeout(quadrants[quadrant].stateTimer);
+			quadrants[quadrant].stateTimer = null;
+		}
+	}
+
+	function calculateFavorDelta(quadrant: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'): number {
+		const q = quadrants[quadrant];
+		const t = q.timeInState;
+
+		switch (q.state) {
+			case 'auspicious':
+				return 5;
+
+			case 'ominous':
+				return -5;
+
+			case 'grounded':
+				// Gain nothing, but +1 more each second
+				return t; // 0s=0, 1s=1, 2s=2, 3s=3...
+
+			case 'benevolent':
+				// +5 favor, but -1 more each second (can go negative)
+				return 5 - t;
+
+			case 'eerie':
+				// Lose nothing, but -1 more each second
+				return -t; // 0s=0, 1s=-1, 2s=-2...
+
+			case 'unfortunate':
+				// -10 favor, but +3 less each second (can go positive)
+				return -10 + (t * 3);
+
+			case 'subtle':
+				// Start ±5, get ∓1 each second (flips over time)
+				if (q.initialDirection === 'gain') {
+					return 5 - t;
+				} else {
+					return -5 + t;
+				}
+
+			case 'foolish':
+				// Start ±5, get ±1 each second (accelerates)
+				if (q.initialDirection === 'gain') {
+					return 5 + t;
+				} else {
+					return -5 - t;
+				}
+
+			case 'normal':
+			default:
+				// +1 favor every 5 seconds
+				return t % 5 === 0 && t > 0 ? 1 : 0;
+		}
+	}
+
+	function updateMonkeyFavor() {
+		if (!monkeyModeActive) return;
+
+		// Increment time in current quadrant
+		quadrants[currentQuadrant].timeInState += 0.1; // 100ms = 0.1 seconds
+
+		// Calculate and apply favor delta
+		const delta = calculateFavorDelta(currentQuadrant);
+		monkeyFavor += delta;
+	}
+
+	function startMonkeyFavorTracking() {
+		if (favorUpdateInterval) return;
+
+		favorUpdateInterval = window.setInterval(() => {
+			updateMonkeyFavor();
+		}, monkeyConfig.quadrantCheckInterval);
+	}
+
+	function stopMonkeyFavorTracking() {
+		if (favorUpdateInterval) {
+			clearInterval(favorUpdateInterval);
+			favorUpdateInterval = null;
+		}
+	}
+
+	// Update displayed favor every second (whole number only)
+	function startFavorDisplayUpdate() {
+		if (favorDisplayInterval) return;
+
+		favorDisplayInterval = window.setInterval(() => {
+			monkeyFavorDisplay = Math.round(monkeyFavor);
+		}, 1000); // Update every 1 second
+	}
+
+	function stopFavorDisplayUpdate() {
+		if (favorDisplayInterval) {
+			clearInterval(favorDisplayInterval);
+			favorDisplayInterval = null;
+		}
+	}
+
+	// ============================================================================
+	// MONKEY MODE - Audio Feedback System
+	// ============================================================================
+
+	function playMonkeyFeedbackSfx() {
+		if (!monkeyModeActive) return;
+
+		// Calculate delta since last check
+		const delta = monkeyFavor - monkeyFavorLastCheck;
+		monkeyFavorLastCheck = monkeyFavor;
+
+		// Determine which SFX to play
+		const sfx = delta > 0 ? monkeyGoodSfx : monkeyBadSfx;
+		if (!sfx) return;
+
+		// Random slice duration (3-5 seconds)
+		const duration = monkeyConfig.feedbackSliceDurationMin +
+		                 Math.random() * (monkeyConfig.feedbackSliceDurationMax - monkeyConfig.feedbackSliceDurationMin);
+
+		// Reset to beginning and play
+		sfx.currentTime = 0;
+		sfx.volume = 0;
+		sfx.play().catch(() => {});
+
+		// Fade in over 0.5 seconds
+		let fadeInProgress = 0;
+		const fadeInInterval = setInterval(() => {
+			fadeInProgress += 50;
+			sfx.volume = Math.min(1, fadeInProgress / 500);
+			if (fadeInProgress >= 500) {
+				clearInterval(fadeInInterval);
+			}
+		}, 50);
+
+		// Fade out and stop after duration
+		setTimeout(() => {
+			let fadeOutProgress = 0;
+			const fadeOutInterval = setInterval(() => {
+				fadeOutProgress += 50;
+				sfx.volume = Math.max(0, 1 - fadeOutProgress / 500);
+				if (fadeOutProgress >= 500) {
+					clearInterval(fadeOutInterval);
+					sfx.pause();
+				}
+			}, 50);
+		}, duration - 500);
+	}
+
+	function startFeedbackSfxLoop() {
+		if (feedbackSfxTimer) return;
+
+		function scheduleNext() {
+			const interval = monkeyConfig.feedbackSfxIntervalMin +
+			                 Math.random() * (monkeyConfig.feedbackSfxIntervalMax - monkeyConfig.feedbackSfxIntervalMin);
+
+			feedbackSfxTimer = window.setTimeout(() => {
+				playMonkeyFeedbackSfx();
+				scheduleNext();
+			}, interval);
+		}
+
+		scheduleNext();
+	}
+
+	function stopFeedbackSfxLoop() {
+		if (feedbackSfxTimer) {
+			clearTimeout(feedbackSfxTimer);
+			feedbackSfxTimer = null;
+		}
+
+		// Stop any playing audio
+		if (monkeyGoodSfx) monkeyGoodSfx.pause();
+		if (monkeyBadSfx) monkeyBadSfx.pause();
+	}
+
+	// ============================================================================
+	// MONKEY MODE - Mouse Tracking & Quadrant Detection
+	// ============================================================================
+
+	function updateCurrentQuadrant(e: MouseEvent) {
+		if (!monkeyModeActive) return;
+		if (typeof window === 'undefined') return; // SSR guard
+
+		const centerX = window.innerWidth / 2;
+		const centerY = window.innerHeight / 2;
+
+		let newQuadrant: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
+
+		if (e.clientX < centerX && e.clientY < centerY) {
+			newQuadrant = 'topLeft';
+		} else if (e.clientX >= centerX && e.clientY < centerY) {
+			newQuadrant = 'topRight';
+		} else if (e.clientX < centerX && e.clientY >= centerY) {
+			newQuadrant = 'bottomLeft';
+		} else {
+			newQuadrant = 'bottomRight';
+		}
+
+		// Reset time counter when switching quadrants
+		if (newQuadrant !== currentQuadrant) {
+			currentQuadrant = newQuadrant;
+			quadrants[currentQuadrant].timeInState = 0;
+		}
+	}
+
+	// ============================================================================
+	// MONKEY MODE - Emotional State Display
+	// ============================================================================
+
+	function updateMonkeyThought() {
+		if (monkeyFavor > monkeyConfig.favorBallingThreshold) {
+			monkeyThought = 'balling';
+		} else if (monkeyFavor > 0) {
+			monkeyThought = 'happy';
+		} else if (monkeyFavor < monkeyConfig.favorAngryThreshold) {
+			monkeyThought = 'angry';
+		} else if (monkeyFavor < 0) {
+			monkeyThought = 'sad';
+		} else {
+			monkeyThought = 'neutral';
+		}
+	}
+
+	// $effect to update monkey thoughts when favor changes
+	$effect(() => {
+		// SSR guard - only run in browser
+		if (typeof window === 'undefined') return;
+
+		if (monkeyModeActive) {
+			updateMonkeyThought();
+		}
+	});
+
+	// ============================================================================
+	// MONKEY MODE - Video Reward System
+	// ============================================================================
+
+	function shouldPlayMonkeyVideo(): boolean {
+		return monkeyModeActive && monkeyFavor >= monkeyConfig.favorVideoThreshold;
+	}
+
+	async function playMonkeyVideoReward() {
+		if (!monkeyVideoUrl) return;
+
+		showMonkeyVideo = true;
+
+		// Mute all audio on the site while video plays
+		if (resultAudio) resultAudio.muted = true;
+		if (wheelClickAudioPool) {
+			wheelClickAudioPool.forEach(audio => audio.muted = true);
+		}
+		if (monkeyGoodSfx) monkeyGoodSfx.muted = true;
+		if (monkeyBadSfx) monkeyBadSfx.muted = true;
+		if (monkeyBgMusic) monkeyBgMusic.muted = true;
+
+		// Wait for DOM to update and video element to be rendered
+		await tick();
+
+		if (!monkeyVideoElement) {
+			console.error('Video element not found after tick');
+			return;
+		}
+
+		// Fade in video
+		monkeyVideoOpacity = 0;
+		const fadeInStart = Date.now();
+		const fadeInDuration = 1000; // 1 second fade in
+
+		const fadeInInterval = setInterval(() => {
+			const elapsed = Date.now() - fadeInStart;
+			monkeyVideoOpacity = Math.min(1, elapsed / fadeInDuration);
+
+			if (elapsed >= fadeInDuration) {
+				clearInterval(fadeInInterval);
+			}
+		}, 16);
+
+		// Start playing video
+		monkeyVideoElement.currentTime = 0;
+
+		// Set playback speed based on favor level with nightcore effect
+		if (monkeyFavor >= 1000) {
+			monkeyVideoElement.preservesPitch = false; // Allow pitch to change (nightcore effect)
+			monkeyVideoElement.playbackRate = 1.5;
+		} else {
+			monkeyVideoElement.preservesPitch = true; // Normal pitch
+			monkeyVideoElement.playbackRate = 1.0;
+		}
+
+		await monkeyVideoElement.play();
+
+		// Wait for video to near end (last 2 seconds)
+		const videoDuration = monkeyVideoElement.duration;
+		const fadeOutStartTime = videoDuration - 2;
+
+		monkeyVideoElement.addEventListener('timeupdate', function handleTimeUpdate() {
+			if (monkeyVideoElement!.currentTime >= fadeOutStartTime) {
+				// Start fade out
+				const fadeOutStart = Date.now();
+				const fadeOutDuration = 2000; // 2 second fade out
+
+				const fadeOutInterval = setInterval(() => {
+					const elapsed = Date.now() - fadeOutStart;
+					monkeyVideoOpacity = Math.max(0, 1 - elapsed / fadeOutDuration);
+
+					if (elapsed >= fadeOutDuration) {
+						clearInterval(fadeOutInterval);
+						showMonkeyVideo = false;
+						monkeyVideoElement!.pause();
+
+						// Unmute all audio after video ends
+						if (resultAudio) resultAudio.muted = false;
+						if (wheelClickAudioPool) {
+							wheelClickAudioPool.forEach(audio => audio.muted = false);
+						}
+						if (monkeyGoodSfx) monkeyGoodSfx.muted = false;
+						if (monkeyBadSfx) monkeyBadSfx.muted = false;
+						if (monkeyBgMusic) monkeyBgMusic.muted = false;
+					}
+				}, 16);
+
+				monkeyVideoElement!.removeEventListener('timeupdate', handleTimeUpdate);
+			}
+		});
+	}
+
+	// ============================================================================
+	// MONKEY MODE - Lifecycle Management
+	// ============================================================================
+
+	// $effect to start/stop monkey mode systems
+	$effect(() => {
+		// SSR guard - only run in browser
+		if (typeof window === 'undefined') return;
+
+		if (selectedThemePreset === 'monkey' && monkeyModeActive) {
+			// Start all systems
+			console.log('Monkey mode activated');
+
+			// Reset state
+			monkeyFavor = 0;
+			monkeyFavorLastCheck = 0;
+			monkeyThought = '';
+
+			// Initialize all quadrants to random states
+			changeQuadrantState('topLeft');
+			changeQuadrantState('topRight');
+			changeQuadrantState('bottomLeft');
+			changeQuadrantState('bottomRight');
+
+			// Start timers
+			startQuadrantTimer('topLeft');
+			startQuadrantTimer('topRight');
+			startQuadrantTimer('bottomLeft');
+			startQuadrantTimer('bottomRight');
+
+			startMonkeyFavorTracking();
+			startFeedbackSfxLoop();
+			startFavorDisplayUpdate();
+
+		} else if (selectedThemePreset !== 'monkey' && monkeyModeActive) {
+			// Stop all systems
+			console.log('Monkey mode deactivated');
+
+			monkeyModeActive = false;
+
+			// Stop timers
+			stopQuadrantTimer('topLeft');
+			stopQuadrantTimer('topRight');
+			stopQuadrantTimer('bottomLeft');
+			stopQuadrantTimer('bottomRight');
+
+			stopMonkeyFavorTracking();
+			stopFeedbackSfxLoop();
+			stopFavorDisplayUpdate();
+
+			// Stop audio
+			if (monkeyBgMusic) {
+				monkeyBgMusic.pause();
+				monkeyBgMusic.currentTime = 0;
+			}
+			if (monkeyGoodSfx) monkeyGoodSfx.pause();
+			if (monkeyBadSfx) monkeyBadSfx.pause();
+
+			// Reset state
+			monkeyFavor = 0;
+			monkeyFavorLastCheck = 0;
+			monkeyThought = '';
+		}
+	});
+
+	// ============================================================================
 	// LIFECYCLE - Load saved data from localStorage
 	// ============================================================================
 
@@ -2024,39 +2906,8 @@
 		resultAudio = new Audio();  // Create empty audio element
 		loadResultSound();  // Load the selected result sound (default: alien)
 
-		// Initialize horror mode audio
-		horrorBgAudio = new Audio(horrorBgSfx);
-		horrorBgAudio.loop = true;
-		horrorBgAudio.volume = hauntedConfig.bgMusicVolumeMin;
-
-		warningAudio = new Audio(fnafHallwaySfx);
-		warningAudio.loop = false;
-		warningAudio.volume = hauntedConfig.warningVolume;
-
-		jumpscareAudio = new Audio(fnafJumpscareSfx);
-
-		refillAudio = new Audio(refillSfx);
-		refillAudio.volume = hauntedConfig.refillVolume;
-
-		// Initialize marionette scream audio pool
-		marionetteScreamAudios = [
-			new Audio(mar01Sfx),
-			new Audio(mar02Sfx),
-			new Audio(mar03Sfx),
-			new Audio(mar04Sfx),
-			new Audio(mar05Sfx)
-		];
-
-		// Initialize horror start/result audio
-		horrorStartAudio = new Audio(horrorStartSfx);
-		horrorResultAudio = new Audio(horrorResultSfx);
-
-		// Initialize ghoul encounter audio
-		heartbeatAudio = new Audio(heartbeatSfx);
-		heartbeatAudio.volume = hauntedConfig.warningVolume; // Same as warning
-		heartbeatAudio.loop = true;
-
-		ghoulJumpscareAudio = new Audio(ghoulSfx);
+		// Horror mode audio will be initialized lazily when theme is selected
+		// (removed initialization from here)
 
 		// Load saved theme
 		loadTheme();
@@ -2086,7 +2937,14 @@
 		// Removed early repositionGasCan() call to prevent spawning before intro completes
 
 		// Add visibility change listener for pause/resume
-		document.addEventListener('visibilitychange', handleVisibilityChange);
+		if (typeof document !== 'undefined') {
+			document.addEventListener('visibilitychange', handleVisibilityChange);
+		}
+
+		// Add mousemove listener for monkey mode quadrant tracking
+		if (typeof document !== 'undefined') {
+			document.addEventListener('mousemove', updateCurrentQuadrant);
+		}
 
 		// Note: Haunted Mode systems are started by the $effect() below, not here
 		// This prevents duplicate intervals from running
@@ -2117,6 +2975,10 @@
 		if (horrorBgAudio) horrorBgAudio.pause();
 		if (warningAudio) warningAudio.pause();
 		if (heartbeatAudio) heartbeatAudio.pause();
+		// Clean up monkey mode event listeners
+		if (typeof document !== 'undefined') {
+			document.removeEventListener('mousemove', updateCurrentQuadrant);
+		}
 		if (jumpscareCountdownInterval) clearInterval(jumpscareCountdownInterval);
 		// Remove visibility change listener (browser only)
 		if (typeof document !== 'undefined') {
@@ -2256,14 +3118,13 @@
 
 <svelte:head>
 	<title>SlippyMudWheel :3</title>
-	<link rel="icon" type="image/png" href={faviconImg} />
 </svelte:head>
 
 		<!-- ============================================================================
 		<!-- MAIN LAYOUT
 		// ============================================================================ -->
 
-	<div class="app-container" role="application" style="font-family: {selectedFont}; background-color: {wheelBackground}; {backgroundWallpaper === 'custom' && customWallpaperDataUrl ? `background-image: url('${customWallpaperDataUrl}'); background-size: cover; background-position: center; background-attachment: fixed;` : backgroundWallpaper === 'arctic_bg.jpg' ? `background-image: url('${arcticBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : backgroundWallpaper === 'creepy.jpg' ? `background-image: url('${creepyBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : ''}">
+	<div class="app-container" role="application" style="font-family: {selectedFont}; background-color: {wheelBackground}; {backgroundWallpaper === 'custom' && customWallpaperDataUrl ? `background-image: url('${customWallpaperDataUrl}'); background-size: cover; background-position: center; background-attachment: fixed;` : backgroundWallpaper === 'arctic_bg.jpg' ? `background-image: url('${arcticBg}'); background-size: cover; background-position: center; background-attachment: fixed;` : backgroundWallpaper === 'creepy.jpg' && horrorBackgroundUrl ? `background-image: url('${horrorBackgroundUrl}'); background-size: cover; background-position: center; background-attachment: fixed;` : ''}">
 
 		<!-- Header :3 -->
 		<header style="background-color: {primaryColor}; border-bottom-color: {primaryColor};">
@@ -2329,6 +3190,18 @@
 					class="wheel-canvas"
 					onclick={() => spin(1)}
 				></canvas>
+
+				<!-- Monkey Mode UI Overlays -->
+				{#if selectedThemePreset === 'monkey' && monkeyModeActive}
+					<div class="monkey-favor-display">
+						<div class="favor-value">Monkey Social Favor: {monkeyFavorDisplay}</div>
+					{#if monkeyThought}
+						<div class="monkey-thought" style="color: #FF0000; font-size: 0.8em; margin-top: 12px;">
+							monkey thoughts: {monkeyThought}
+						</div>
+					{/if}
+				</div>
+			{/if}
 			</section>
 
 			<!-- ==================================================================== -->
@@ -2473,6 +3346,16 @@
 						👻 HAUNTED MODE
 					</button>
 					{/if}
+
+					<!-- MONKEY MODE (Beta) -->
+					<button
+						class="preset-button"
+						class:active={selectedThemePreset === 'monkey'}
+						style="border-color: {primaryColor}; {selectedThemePreset === 'monkey' ? `background-color: ${primaryColor}; color: ${secondaryColor};` : `color: ${primaryColor};`}"
+						onclick={() => applyThemePreset('monkey')}
+					>
+						🐵 MONKEY MODE (Beta)
+					</button>
 				</div>
 			</section>
 
@@ -2489,8 +3372,20 @@
 			<section class="settings-section" style="border-bottom-color: {primaryColor};">
 				<h3 style="color: {primaryColor};">Import/Export Theme</h3>
 				<div class="button-group">
-					<button style="border-color: {primaryColor}; color: {primaryColor};">Import Theme JSON</button>
-					<button style="border-color: {primaryColor}; color: {primaryColor};">Export Theme JSON</button>
+					<button
+						style="border-color: {primaryColor}; color: {primaryColor};"
+						onclick={() => {
+							const input = document.createElement('input');
+							input.type = 'file';
+							input.accept = '.json';
+							input.onchange = importTheme;
+							input.click();
+						}}
+					>Import Theme JSON</button>
+					<button
+						style="border-color: {primaryColor}; color: {primaryColor};"
+						onclick={exportTheme}
+					>Export Theme JSON</button>
 				</div>
 			</section>
 
@@ -2776,7 +3671,7 @@
 	<div class="jumpscare-overlay" class:fadeout={jumpscarePhase === 'fadeout'}>
 		{#if jumpscarePhase === 'jumpscare' || jumpscarePhase === 'scream'}
 			<img
-				src={currentJumpscareType === 'ghoul' ? ghoulGif : fnafJumpscareGif}
+				src={currentJumpscareType === 'ghoul' ? ghoulGif : (horrorJumpscareGifUrl || '')}
 				alt="Jumpscare"
 				class="jumpscare-gif"
 				style="opacity: {jumpscareAnimationProgress};"
@@ -2787,6 +3682,37 @@
 	</div>
 	{/if}
 
+	<!-- Monkey Mode Fade to Black Overlay -->
+	{#if selectedThemePreset === 'monkey' && monkeyFadeToBlack}
+	<div class="monkey-fade-overlay" style="opacity: {monkeyFadeOpacity};"></div>
+	{/if}
+
+	<!-- Monkey Mode Video Reward Overlay -->
+	{#if selectedThemePreset === 'monkey' && showMonkeyVideo && monkeyVideoUrl}
+	<div class="monkey-video-overlay" style="opacity: {monkeyVideoOpacity};">
+		<video
+			bind:this={monkeyVideoElement}
+			src={monkeyVideoUrl}
+			class="monkey-video"
+			autoplay
+			muted={false}
+			preload="auto"
+		></video>
+	</div>
+	{/if}
+
+<!-- ============================================================================ -->
+<!-- LOADING OVERLAY -->
+<!-- ============================================================================ -->
+
+{#if horrorAssetsLoading || monkeyAssetsLoading}
+<div class="loading-overlay">
+	<div class="loading-spinner"></div>
+	<p style="color: white; font-size: 1.5rem; margin-top: 1rem;">
+		{horrorAssetsLoading ? 'Loading Horror Mode...' : 'Loading Monkey Mode...'}
+	</p>
+</div>
+{/if}
 
 	<!-- ============================================================================ -->
 	<!-- STYLES -->
@@ -3858,7 +4784,8 @@
 			/* ====================================================================
 			   CANDLELIGHT SYSTEM - Multi-layered organic lighting
 			   ==================================================================== */
-			--light-brightness: calc(var(--fuel-level) / 100);
+			/* Enhanced dimming: 30% at 0% fuel, 100% at 100% fuel */
+			--light-brightness: calc(0.3 + (var(--fuel-level) / 100) * 0.7);
 
 			/* Logarithmic color temperature (warm → cool transition)
 			   Stays warm until ~20% fuel, then rapidly shifts to cool blue */
@@ -3868,20 +4795,19 @@
 			--warm-green: calc(220 - (20 * var(--coolness-factor)));  /* 220 → 200 */
 			--warm-blue: calc(180 + (75 * var(--coolness-factor)));   /* 180 → 255 */
 
-			/* Vignette: edges get darker as fuel depletes (desperation effect) */
-			/* Darker overall for more oppressive atmosphere */
-			--vignette: calc(0.85 + (0.10 * (1 - var(--light-brightness))));
+			/* Enhanced vignette darkening - much darker at low fuel */
+			--vignette: calc(0.85 + (0.15 * (1 - var(--fuel-level) / 100)));
 
 			/* ====================================================================
 			   MULTI-LAYERED CANDLELIGHT WITH THEME INTEGRATION
 			   ==================================================================== */
 			background:
-				/* Layer 3: Outer glow - ambient light falloff */
+				/* Layer 3: Outer glow - ambient light falloff with exponential dimming */
 				radial-gradient(
 					circle var(--outer-radius) at var(--cursor-x) var(--cursor-y),
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.35 * var(--light-brightness))) 0%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.08 * var(--light-brightness))) 40%,
-					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.02 * var(--light-brightness))) 85%,
+					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.35 * pow(var(--light-brightness), 1.5))) 0%,
+					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.08 * pow(var(--light-brightness), 1.5))) 40%,
+					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.02 * pow(var(--light-brightness), 1.5))) 85%,
 					transparent 100%
 				),
 				/* Layer 2: Inner glow - main illumination zone */
@@ -3899,12 +4825,12 @@
 					rgba(var(--warm-red), var(--warm-green), var(--warm-blue), calc(0.40 * var(--light-brightness))) 60%,
 					transparent 100%
 				),
-				/* Base darkness - fades from transparent near cursor to black at edges */
+				/* Base darkness - much darker at low fuel */
 				radial-gradient(
 					circle 300px at var(--cursor-x) var(--cursor-y),
 					transparent 0%,
-					rgba(0, 0, 0, 0.7) 40%,
-					rgba(0, 0, 0, 0.95) 100%
+					rgba(0, 0, 0, calc(0.7 * var(--vignette))) 40%,
+					rgba(0, 0, 0, calc(0.95 * var(--vignette))) 100%
 				);
 			transition: background 0.4s ease-in-out;
 		}
@@ -3934,6 +4860,37 @@
 			transform: scale(1.15);
 			opacity: 1;
 			filter: drop-shadow(0 0 25px rgba(255, 200, 0, 0.9)) drop-shadow(0 0 10px rgba(255, 150, 0, 0.7));
+		}
+
+		/* ========================================================================== */
+		/* LOADING OVERLAY */
+		/* ========================================================================== */
+
+		.loading-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: rgba(0, 0, 0, 0.9);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			z-index: 9999999;
+		}
+
+		.loading-spinner {
+			width: 60px;
+			height: 60px;
+			border: 4px solid rgba(255, 255, 255, 0.3);
+			border-top-color: white;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+
+		@keyframes spin {
+			to { transform: rotate(360deg); }
 		}
 
 		.gas-can.spawning {
@@ -4244,6 +5201,61 @@
 				padding: 0.4rem 0.8rem;
 				font-size: 0.875rem;
 			}
+		}
+
+		/* ================================================================ */
+		/* MONKEY MODE STYLES */
+		/* ================================================================ */
+
+		.monkey-favor-display {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			background: rgba(139, 69, 19, 0.8);
+			padding: 0.5rem 1rem;
+			border-radius: 8px;
+			color: white;
+			font-weight: bold;
+			z-index: 100;
+		}
+
+		.monkey-thought {
+			font-size: 1.2rem;
+			font-weight: bold;
+			text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+		}
+
+		.monkey-fade-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: black;
+			z-index: 9999999;
+			pointer-events: none;
+			transition: opacity 0.3s ease;
+		}
+
+		.monkey-video-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: black;
+			z-index: 10000000;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			transition: opacity 0.5s ease;
+		}
+
+		.monkey-video {
+			max-width: 100%;
+			max-height: 100%;
+			object-fit: contain;
 		}
 
 	</style>

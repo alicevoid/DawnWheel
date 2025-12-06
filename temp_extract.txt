@@ -1,0 +1,3 @@
+					<div class="monkey-favor-display">
+						<div class="favor-value">Monkey Social Favor: {monkeyFavorDisplay}</div>
+					</div>
