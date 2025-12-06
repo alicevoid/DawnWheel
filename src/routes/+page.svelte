@@ -11,7 +11,6 @@
 	import gasCanImg from '$lib/gas_can.png';
 	import blackTag from '$lib/black.png';
 	import black2Tag from '$lib/black2.png';
-	import faviconImg from '$lib/SMM_logo.ico';
 	import wheelClickSfx from '$lib/wheel_click.ogg';
 	import rimClickSfx from '$lib/rim_click.ogg';
 	import victorySfx from '$lib/victory.ogg';
@@ -2254,7 +2253,6 @@
 	</script>
 
 <svelte:head>
-	<link rel="icon" type="image/x-icon" href={faviconImg} />
 	<title>SlippyMudWheel :3</title>
 </svelte:head>
 
