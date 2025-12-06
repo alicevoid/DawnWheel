@@ -14,7 +14,7 @@
 	import faviconImg from '$lib/SMM_logo.ico';
 	import wheelClickSfx from '$lib/wheel_click.ogg';
 	import rimClickSfx from '$lib/rim_click.ogg';
-	import resultSfx from '$lib/victory.ogg';
+	import victorySfx from '$lib/victory.ogg';
 
 	// Horror Mode Audio
 	import refillSfx from '$lib/refill.ogg';
@@ -43,19 +43,6 @@
 	import ghoulSfx from '$lib/ghoul.ogg';
 	import heartbeatSfx from '$lib/heartbeat.ogg';
 
-	// TODO: Import stores (once created)
-	// import { movies } from '$lib/stores/movies';
-	// import { wheelState } from '$lib/stores/wheelState';
-	// import { spinHistory } from '$lib/stores/history';
-
-	// TODO: Import utility functions (once created)
-	// import { fetchMoviesFromGoogleDocs } from '$lib/utils/googleDocs';
-	// import { getLetterboxdSearchUrl } from '$lib/utils/letterboxd';
-
-	// TODO: Import components (once created)
-	// import Wheel from '$lib/components/Wheel.svelte';
-	// import ResultsModal from '$lib/components/ResultsModal.svelte';
-	// import HistorySidebar from '$lib/components/HistorySidebar.svelte';
 
 	// ============================================================================
 	// STATE MANAGEMENT (Svelte 5 Runes)
@@ -81,7 +68,6 @@
 	let secondaryColor = $state('#FFFFFF'); // White
 	let wheelBackground = $state('#E0F2FF'); // Light ice blue
 	let selectedFont = $state('Arial');
-	let invertBW = $state(false);
 	let wheelColors = $state(['#1E90FF', '#87CEEB', '#4682B4', '#5F9EA0', '#B0E0E6']);
 	let backgroundWallpaper = $state('arctic_bg.jpg'); // Arctic background
 	let wheelCenterImage = $state('penguin.jpg'); // Penguin center image
@@ -91,7 +77,6 @@
 	let customSecondaryColor = $state('#FFFFFF');
 	let customWheelBackground = $state('#E0F2FF');
 	let customSelectedFont = $state('Arial');
-	let customInvertBW = $state(false);
 	let customWheelColors = $state(['#1E90FF', '#87CEEB', '#4682B4', '#5F9EA0', '#B0E0E6']);
 	let customBackgroundWallpaper = $state('arctic_bg.jpg');
 	let customWheelCenterImage = $state('penguin.jpg');
@@ -113,7 +98,7 @@
 	let sfxEnabled = $state(true); // Master SFX toggle
 	let wheelClickEnabled = $state(true); // Wheel click sound
 	let wheelClickSound = $state('rimshot'); // 'wheel_click' or 'rimshot'
-	let resultSound = $state('alien'); // 'victory', 'alien', 'monkey', 'horror_result'
+	let resultSound = $state('alien'); // 'alien' (default), 'victory', 'monkey', 'horror_result'
 	let resultEnabled = $state(true); // Result sound
 	let sfxVolume = $state(0.2); // Master volume (0-1)
 
@@ -310,7 +295,6 @@
 	}
 
 	function startHorrorIntro() {
-		console.log('[HORROR INTRO] Starting horror intro');
 		showHorrorIntro = true;
 		lanternFadeProgress = 0;
 		const fadeDuration = 1500; // ms
@@ -322,7 +306,6 @@
 			if (lanternFadeProgress < 1) {
 				lanternFadeAnimationFrame = requestAnimationFrame(animateFade);
 			} else {
-				console.log('[HORROR INTRO] Fade-in complete, starting game');
 				showHorrorIntro = false;
 				// Start horror game systems
 				startFuelDrain();
@@ -347,7 +330,6 @@
 	// LIGHT FLICKER ANIMATION (Realistic flashlight wobble)
 	// ========================================================================
 	function startFlickerAnimation() {
-		console.log('Starting flicker animation');
 
 		function updateFlicker() {
 			if (horrorGamePaused) {
@@ -370,7 +352,6 @@
 	}
 
 	function stopFlickerAnimation() {
-		console.log('Stopping flicker animation');
 
 		if (flickerAnimationFrame) {
 			cancelAnimationFrame(flickerAnimationFrame);
@@ -381,7 +362,6 @@
 	// HORROR MODE AUDIO SYSTEM
 	// ========================================================================
 	function updateBgMusicVolume() {
-		console.log('Updating background music volume based on fuel level');
 
 		if (!horrorBgAudio || horrorGamePaused) return;
 
@@ -393,7 +373,6 @@
 	}
 
 	function startTempoVariation() {
-		console.log('Starting tempo variation for background music');
 
 		function randomizeTempo() {
 			const variation = (Math.random() * 2 - 1) * hauntedConfig.tempoVariationAmount;
@@ -408,7 +387,6 @@
 	}
 
 	function stopTempoVariation() {
-		console.log('Stopping tempo variation for background music');
 
 		if (tempoVariationInterval) {
 			clearInterval(tempoVariationInterval);
@@ -419,7 +397,6 @@
 	// JUMPSCARE SYSTEM
 	// ========================================================================
 	function startJumpscareCountdown() {
-		console.log('Starting jumpscare countdown');
 
 		jumpscareCountdown = hauntedConfig.jumpscareCountdownTime;
 
@@ -452,7 +429,6 @@
 	let jumpscareGifEl: HTMLImageElement | null = null;
 
 	function triggerJumpscare() {
-		console.log('Triggering jumpscare sequence');
 
 		// Stop all horror audio
 		if (horrorBgAudio) horrorBgAudio.pause();
@@ -524,7 +500,6 @@
 	}
 
 	function resetHorrorMode() {
-		console.log('Resetting horror mode after jumpscare');
 
 		// Reset all horror state
 		showJumpscare = false;
@@ -553,7 +528,6 @@
 
 	// Start checking for ghoul spawns (called when haunted mode starts)
 	function startGhoulSpawnSystem() {
-		console.log('[GHOUL] Starting spawn system');
 
 		ghoulSpawnInterval = setInterval(() => {
 			if (horrorGamePaused || ghoulActive || showJumpscare) return;
@@ -572,7 +546,6 @@
 	}
 
 	function spawnGhoul() {
-		console.log('[GHOUL] Spawning ghoul');
 
 		ghoulActive = true;
 		repositionGhoul();
@@ -603,13 +576,17 @@
 		}, 1000);
 	}
 
-	function repositionGhoul() {
-		// Similar to repositionGasCan - place away from cursor
+	/**
+	 * Helper function to position an element away from the cursor
+	 * @param marginPercent - Percentage of screen size to avoid around cursor (0.1 = 10%, 0.15 = 15%)
+	 * @returns Object with x and y coordinates
+	 */
+	function getPositionAwayFromCursor(marginPercent: number): { x: number; y: number } {
 		const width = typeof window !== 'undefined' ? window.innerWidth : 800;
 		const height = typeof window !== 'undefined' ? window.innerHeight : 600;
 
-		const xRange = width * 0.15;  // Bigger zone than gas can (15%)
-		const yRange = height * 0.15;
+		const xRange = width * marginPercent;
+		const yRange = height * marginPercent;
 
 		const mouseX = Math.max(0, Math.min(cursorX, width));
 		const mouseY = Math.max(0, Math.min(cursorY, height));
@@ -632,12 +609,16 @@
 			y >= nearMinY && y <= nearMaxY
 		);
 
-		ghoulX = x;
-		ghoulY = y;
+		return { x, y };
+	}
+
+	function repositionGhoul() {
+		const pos = getPositionAwayFromCursor(0.15); // 15% margin
+		ghoulX = pos.x;
+		ghoulY = pos.y;
 	}
 
 	function despawnGhoul() {
-		console.log('[GHOUL] Despawning ghoul');
 
 		ghoulActive = false;
 		ghoulCountdown = -1;
@@ -650,7 +631,6 @@
 	}
 
 	function onGhoulMouseEnter() {
-		console.log('[GHOUL] Mouse enter - starting hover timer');
 
 		isHoveringGhoul = true;
 		ghoulHoverStartTime = Date.now();
@@ -671,7 +651,6 @@
 	}
 
 	function onGhoulMouseLeave() {
-		console.log('[GHOUL] Mouse leave - resetting hover timer');
 
 		isHoveringGhoul = false;
 		ghoulHoverDuration = 0;
@@ -682,7 +661,6 @@
 	}
 
 	function ghoulFound() {
-		console.log('[GHOUL] Player successfully found ghoul!');
 
 		// Stop heartbeat
 		if (heartbeatAudio) heartbeatAudio.pause();
@@ -698,7 +676,6 @@
 	}
 
 	function triggerGhoulJumpscare() {
-		console.log('[GHOUL] Triggering ghoul jumpscare');
 
 		// Stop all horror audio
 		if (horrorBgAudio) horrorBgAudio.pause();
@@ -778,7 +755,6 @@
 	// PAUSE/RESUME SYSTEM
 	// ========================================================================
 	function handleVisibilityChange() {
-		console.log('Handling visibility change for pause/resume');
 
 		if (typeof document === 'undefined') return; // SSR guard
 		if (selectedThemePreset !== 'haunted') return;
@@ -791,7 +767,6 @@
 	}
 
 	function pauseHorrorMode() {
-		console.log('Pausing horror mode');
 
 		horrorGamePaused = true;
 
@@ -802,7 +777,6 @@
 	}
 
 	function resumeHorrorMode() {
-		console.log('Resuming horror mode');
 
 		horrorGamePaused = false;
 
@@ -844,13 +818,8 @@
 	}
 
 	function playResult() {
-		console.log('🔊 [RESULT SOUND] playResult() called');
-		console.log('🔊 [RESULT SOUND] resultSound:', resultSound);
-		console.log('🔊 [RESULT SOUND] selectedThemePreset:', selectedThemePreset);
-		console.log('🔊 [RESULT SOUND] sfxEnabled:', sfxEnabled, 'resultEnabled:', resultEnabled);
 
 		if (!sfxEnabled || !resultEnabled) {
-			console.log('🔊 [RESULT SOUND] Skipping - sound disabled');
 			return;
 		}
 
@@ -860,11 +829,9 @@
 			: resultAudio;
 
 		if (!audioToPlay) {
-			console.log('🔊 [RESULT SOUND] ERROR: audioToPlay is null!');
 			return;
 		}
 
-		console.log('🔊 [RESULT SOUND] Playing audio.src:', audioToPlay.src);
 
 		audioToPlay.currentTime = 0;
 		audioToPlay.volume = sfxVolume;
@@ -877,7 +844,6 @@
 	// FUEL SYSTEM
 	// ========================================================================
 	function startFuelDrain() {
-		console.log('Starting fuel drain');
 
 		// Stop any existing drain first to prevent multiple intervals
 		stopFuelDrain();
@@ -893,7 +859,6 @@
 				updateBgMusicVolume(); // Dynamic volume adjustment
 			} else if (fuelLevel <= 0 && jumpscareCountdown === -1) {
 				// SAFEGUARD: Only trigger jumpscare if fuel is truly depleted
-				console.log(`[FUEL DRAIN] Fuel depleted! fuelLevel=${fuelLevel}, triggering jumpscare countdown`);
 				fuelLevel = 0; // Ensure it's exactly 0
 				startJumpscareCountdown();
 			}
@@ -901,7 +866,6 @@
 	}
 
 	function stopFuelDrain() {
-		console.log('Stopping fuel drain');
 
 		if (fuelDrainInterval) {
 			clearInterval(fuelDrainInterval);
@@ -909,11 +873,9 @@
 	}
 
 	function refuelLantern() {
-		console.log('Refueling lantern from gas can');
 
 		// SAFEGUARD: Cancel jumpscare countdown if it was running
 		if (jumpscareCountdown >= 0) {
-			console.log(`[REFUEL] Canceling active jumpscare countdown (was at ${jumpscareCountdown}s)`);
 			clearInterval(jumpscareCountdownInterval);
 			jumpscareCountdown = -1;
 			// Stop warning audio
@@ -946,11 +908,9 @@
 		const cooldownDuration = hauntedConfig.gasCanCooldownMin +
 			Math.random() * (hauntedConfig.gasCanCooldownMax - hauntedConfig.gasCanCooldownMin);
 
-		console.log(`[GAS CAN] Cooldown started: ${(cooldownDuration/1000).toFixed(1)}s`);
 
 		gasCanCooldownTimer = window.setTimeout(() => {
 			gasCanCooldown = false;
-			console.log('[GAS CAN] Cooldown ended - gas can visible again');
 		}, cooldownDuration);
 
 		// Gradually refill to 100%
@@ -976,7 +936,6 @@
 	 * Start all three candlelight animation systems
 	 */
 	function startCandlelightSystem() {
-		console.log('[CANDLELIGHT] Starting candlelight system');
 
 		// Initialize radii to base values
 		coreRadius = (hauntedConfig.coreRadiusMin + hauntedConfig.coreRadiusMax) / 2;
@@ -994,7 +953,6 @@
 	 * Stop all candlelight animation systems
 	 */
 	function stopCandlelightSystem() {
-		console.log('[CANDLELIGHT] Stopping candlelight system');
 
 		// Stop fast flickers
 		if (fastFlickerInterval) {
@@ -1123,7 +1081,6 @@
 
 	function triggerGutter() {
 		isGuttering = true;
-		console.log('[CANDLELIGHT] Guttering!');
 
 		// Shrink all zones dramatically
 		const gutterMod = hauntedConfig.gutterIntensity;
@@ -1157,44 +1114,9 @@
 	}
 
 	function repositionGasCan() {
-		console.log('Repositioning gas can away from mouse');
-
-		// Get screen dimensions
-		const width = typeof window !== 'undefined' ? window.innerWidth : 800;
-		const height = typeof window !== 'undefined' ? window.innerHeight : 600;
-
-		// 10% of screen dimensions
-		const xRange = width * 0.1;
-		const yRange = height * 0.1;
-
-		// Clamp mouse position to screen
-		const mouseX = Math.max(0, Math.min(cursorX, width));
-		const mouseY = Math.max(0, Math.min(cursorY, height));
-
-		const margin = 100;
-
-		// Define "near mouse" region
-		const nearMinX = Math.max(margin, mouseX - xRange);
-		const nearMaxX = Math.min(width - margin, mouseX + xRange);
-		const nearMinY = Math.max(margin, mouseY - yRange);
-		const nearMaxY = Math.min(height - margin, mouseY + yRange);
-
-		// Pick a random position OUTSIDE the "near mouse" region
-		let x, y;
-		let attempts = 0;
-		do {
-			x = margin + Math.random() * (width - margin * 2);
-			y = margin + Math.random() * (height - margin * 2);
-			attempts++;
-			// Avoid infinite loop if screen is very small
-			if (attempts > 20) break;
-		} while (
-			x >= nearMinX && x <= nearMaxX &&
-			y >= nearMinY && y <= nearMaxY
-		);
-
-		gasCanX = x;
-		gasCanY = y;
+		const pos = getPositionAwayFromCursor(0.1); // 10% margin
+		gasCanX = pos.x;
+		gasCanY = pos.y;
 
 		// Trigger fade-in animation with random duration (3-7 seconds)
 		gasCanFadeDuration = 3000 + Math.random() * 4000; // Random between 3000-7000ms
@@ -1372,7 +1294,6 @@
 	function applyThemePreset(preset: 'penguin' | 'haunted' | 'user') {
 		selectedThemePreset = preset;
 
-		console.log(`Applying theme preset: ${preset}`);
 
 		if (preset === 'penguin') {
 
@@ -1694,7 +1615,6 @@
 			secondaryColor,
 			wheelBackground,
 			selectedFont,
-			invertBW,
 			wheelColors,
 			backgroundWallpaper,
 			wheelCenterImage
@@ -1712,7 +1632,6 @@
 				secondaryColor = theme.secondaryColor || secondaryColor;
 				wheelBackground = theme.wheelBackground || wheelBackground;
 				selectedFont = theme.selectedFont || selectedFont;
-				invertBW = theme.invertBW || invertBW;
 				wheelColors = theme.wheelColors || wheelColors;
 				backgroundWallpaper = theme.backgroundWallpaper || backgroundWallpaper;
 				wheelCenterImage = theme.wheelCenterImage || wheelCenterImage;
@@ -1723,7 +1642,6 @@
 
 		// Force non-haunted theme on mobile devices
 		if (isMobileDevice() && selectedThemePreset === 'haunted') {
-			console.log('[MOBILE] Horror mode disabled on mobile device');
 			selectedThemePreset = 'penguin';
 			applyThemePreset('penguin');
 		}
@@ -1739,28 +1657,20 @@
 	}
 
 	function saveUserTheme() {
-		console.log('🔵 [SAVE] saveUserTheme() called');
-		console.log('🔵 [SAVE] Current selectedThemePreset:', selectedThemePreset);
 
 		// If we're on Custom Theme, save the current active values to custom variables first
 		if (selectedThemePreset === 'user') {
-			console.log('🔵 [SAVE] On Custom Theme - copying active → custom* variables');
-			console.log('🔵 [SAVE] Before copy - customPrimaryColor:', customPrimaryColor, 'primaryColor:', primaryColor);
 
 			customPrimaryColor = primaryColor;
 			customSecondaryColor = secondaryColor;
 			customWheelBackground = wheelBackground;
 			customSelectedFont = selectedFont;
-			customInvertBW = invertBW;
 			customWheelColors = [...wheelColors];
 			customBackgroundWallpaper = backgroundWallpaper;
 			customWheelCenterImage = wheelCenterImage;
 			customWheelClickSound = wheelClickSound;
 
-			console.log('🔵 [SAVE] After copy - customPrimaryColor:', customPrimaryColor);
 		} else {
-			console.log('🔵 [SAVE] NOT on Custom Theme - keeping custom* variables unchanged');
-			console.log('🔵 [SAVE] customPrimaryColor remains:', customPrimaryColor);
 		}
 
 		// Always save from custom* variables to localStorage
@@ -1769,7 +1679,6 @@
 			secondaryColor: customSecondaryColor,
 			wheelBackground: customWheelBackground,
 			selectedFont: customSelectedFont,
-			invertBW: customInvertBW,
 			wheelColors: customWheelColors,
 			backgroundWallpaper: customBackgroundWallpaper,
 			wheelCenterImage: customWheelCenterImage,
@@ -1781,7 +1690,6 @@
 			customResultDataUrl
 		};
 		localStorage.setItem('slippymud_user_theme', JSON.stringify(userTheme));
-		console.log('🔵 [SAVE] Saved to localStorage:', userTheme);
 	}
 
 	function loadUserTheme() {
@@ -1794,7 +1702,6 @@
 				customSecondaryColor = userTheme.secondaryColor;
 				customWheelBackground = userTheme.wheelBackground;
 				customSelectedFont = userTheme.selectedFont;
-				customInvertBW = userTheme.invertBW;
 				customWheelColors = userTheme.wheelColors;
 				customBackgroundWallpaper = userTheme.backgroundWallpaper;
 				customWheelCenterImage = userTheme.wheelCenterImage;
@@ -1810,13 +1717,11 @@
 				secondaryColor = customSecondaryColor;
 				wheelBackground = customWheelBackground;
 				selectedFont = customSelectedFont;
-				invertBW = customInvertBW;
 				wheelColors = [...customWheelColors];
 				backgroundWallpaper = customBackgroundWallpaper;
 				wheelCenterImage = customWheelCenterImage;
 				wheelClickSound = customWheelClickSound;
 
-				console.log('Custom theme loaded from localStorage');
 			} catch (e) {
 				console.error('Failed to load custom theme:', e);
 				// If loading fails, keep custom* variables as-is (they're already initialized)
@@ -1825,7 +1730,6 @@
 				secondaryColor = customSecondaryColor;
 				wheelBackground = customWheelBackground;
 				selectedFont = customSelectedFont;
-				invertBW = customInvertBW;
 				wheelColors = [...customWheelColors];
 				backgroundWallpaper = customBackgroundWallpaper;
 				wheelCenterImage = customWheelCenterImage;
@@ -1835,12 +1739,10 @@
 			// FIRST TIME ONLY: No saved custom theme exists yet
 			// Custom* variables are already initialized to penguin-like defaults at the top of the file
 			// Just copy them to active variables and save to localStorage
-			console.log('No saved custom theme found - initializing with current custom* values');
 			primaryColor = customPrimaryColor;
 			secondaryColor = customSecondaryColor;
 			wheelBackground = customWheelBackground;
 			selectedFont = customSelectedFont;
-			invertBW = customInvertBW;
 			wheelColors = [...customWheelColors];
 			backgroundWallpaper = customBackgroundWallpaper;
 			wheelCenterImage = customWheelCenterImage;
@@ -2050,35 +1952,27 @@
 	}
 
 	function loadResultSound() {
-		console.log('🔧 [LOAD SOUND] loadResultSound() called');
-		console.log('🔧 [LOAD SOUND] resultSound:', resultSound);
 		
 		let soundFile;
 		if (resultSound === 'custom' && customResultDataUrl) {
 			soundFile = customResultDataUrl;
-			console.log('🔧 [LOAD SOUND] Using custom upload');
 		} else if (resultSound === 'alien') {
 			soundFile = alien1Sfx;
-			console.log('🔧 [LOAD SOUND] Using ALIEN sound');
 		} else if (resultSound === 'monkey') {
 			soundFile = monkeySfx;
-			console.log('🔧 [LOAD SOUND] Using MONKEY sound');
+		} else if (resultSound === 'victory') {
+			soundFile = victorySfx;
 		} else if (resultSound === 'horror_result') {
 			soundFile = horrorResultSfx;
-			console.log('🔧 [LOAD SOUND] Using HORROR RESULT sound');
 		} else {
-			soundFile = resultSfx;  // Default 'victory' option
-			console.log('🔧 [LOAD SOUND] Using VICTORY sound (default fallback)');
+			soundFile = alien1Sfx;  // Default 'alien' option
 		}
 		
-		console.log('🔧 [LOAD SOUND] soundFile:', soundFile);
 		
 		if (resultAudio) {
 			resultAudio.src = soundFile;
 			resultAudio.load();
-			console.log('🔧 [LOAD SOUND] Loaded into resultAudio.src:', resultAudio.src);
 		} else {
-			console.log('🔧 [LOAD SOUND] ERROR: resultAudio is null!');
 		}
 	}
 
@@ -2183,10 +2077,8 @@
 
 		// Auto-load movies from whatever link is in the input field (default or saved)
 		if (googleDocsLink && googleDocsLink.trim()) {
-			console.log('[INIT] Auto-loading movies from Google Docs link:', googleDocsLink);
 			handleRefresh();
 		} else {
-			console.log('[INIT] No link provided, using fallback 1-100');
 		}
 
 		// Gas can position will be initialized after haunted intro (6-second delay)
@@ -2258,9 +2150,7 @@
 			startTempoVariation();
 			// Start haunted intro animation (candlelight starts AFTER intro completes)
 			startHauntedIntro();
-			console.log(`[HAUNTED INTRO] Haunted Mode systems will start after intro`);
 		} else if (selectedThemePreset !== 'haunted' && hauntedInit == true){
-			console.log('Haunted Mode deactivated - stopping horror systems');
 			hauntedInit = false;
 			stopFuelDrain();
 			stopFlickerAnimation();
@@ -2330,7 +2220,6 @@
 
 		// Helper to start haunted intro animation
 		function startHauntedIntro() {
-			console.log('[HAUNTED INTRO] Starting haunted intro');
 			playHorrorStart();
 			lanternIntroProgress = 0;
 			const fadeDuration = 1500; // ms
@@ -2342,7 +2231,6 @@
 				if (lanternIntroProgress < 1) {
 					lanternIntroAnimationFrame = requestAnimationFrame(animateLanternIntro);
 				} else {
-					console.log('[HAUNTED INTRO] Lantern fade-in complete, starting game');
 					// Start candlelight animations (NOW - after intro fade complete)
 					startCandlelightSystem();
 					// Start game logic only (no bg music here)
@@ -2856,30 +2744,6 @@
 		"
 	></div>
 
-	<!-- CANDLELIGHT DEBUG OVERLAY -->
-	<div class="candlelight-debug">
-		<h3>🕯️ Candlelight Debug</h3>
-		<div class="debug-section">
-			<h4>Radii (px)</h4>
-			<div class="debug-value">🔵 Core: {coreRadius.toFixed(1)} ({hauntedConfig.coreRadiusMin}-{hauntedConfig.coreRadiusMax})</div>
-			<div class="debug-value">🟢 Inner: {innerRadius.toFixed(1)} ({hauntedConfig.innerRadiusMin}-{hauntedConfig.innerRadiusMax})</div>
-			<div class="debug-value">🔴 Outer: {outerRadius.toFixed(1)} ({hauntedConfig.outerRadiusMin}-{hauntedConfig.outerRadiusMax})</div>
-		</div>
-		<div class="debug-section">
-			<h4>Animation States</h4>
-			<div class="debug-value">Fast Flicker: {fastFlickerInterval ? '✅ Running' : '❌ Stopped'}</div>
-			<div class="debug-value">Breathing: {breathingAnimationFrame ? '✅ Running' : '❌ Stopped'}</div>
-			<div class="debug-value">Breathing Phase: {(breathingPhase * 100).toFixed(1)}%</div>
-			<div class="debug-value">Breathing Speed: {breathingSpeed}ms</div>
-			<div class="debug-value">Gutter System: {gutterInterval ? '✅ Running' : '❌ Stopped'}</div>
-			<div class="debug-value">Is Guttering: {isGuttering ? '🔥 YES' : 'No'}</div>
-		</div>
-		<div class="debug-section">
-			<h4>Other</h4>
-			<div class="debug-value">Fuel Level: {fuelLevel.toFixed(1)}%</div>
-			<div class="debug-value">Intro Progress: {(lanternIntroProgress * 100).toFixed(0)}%</div>
-		</div>
-	</div>
 
 	<!-- Show gas can only after intro is done AND not on cooldown -->
 	{#if lanternIntroProgress === 1 && !gasCanCooldown}
@@ -2928,8 +2792,19 @@
 	<!-- ============================================================================ -->
 
 	<style>
-		/* TODO: Add Tailwind CSS or custom styles */
-		/* For now, basic layout structure */
+		/* CSS Custom Properties / Variables */
+		:root {
+			/* Border radius tokens */
+			--radius-sm: 4px;
+			--radius-md: 8px;
+			--radius-lg: 12px;
+			--radius-xl: 16px;
+
+			/* Transition tokens */
+			--transition-fast: all 0.15s ease;
+			--transition-standard: all 0.2s ease;
+			--transition-slow: all 0.3s ease;
+		}
 
 		:global(*) {
 			margin: 0;
@@ -2940,6 +2815,34 @@
 		:global(body) {
 			font-family: Arial, sans-serif;
 			overflow: hidden;
+		}
+
+		/* Base Button Styles */
+		.btn {
+			padding: 0.5rem 1rem;
+			font-size: 1rem;
+			cursor: pointer;
+			border: 2px solid;
+			border-radius: var(--radius-md);
+			background: #fff;
+			transition: var(--transition-standard);
+		}
+
+		.btn:hover:not(:disabled) {
+			background: rgba(114, 47, 55, 0.1);
+		}
+
+		.btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		.btn-transparent {
+			background: transparent;
+		}
+
+		.btn-transparent:hover {
+			background: rgba(255, 255, 255, 0.2);
 		}
 
 		.app-container {
@@ -2966,9 +2869,9 @@
 			font-size: 1rem;
 			cursor: pointer;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background: transparent;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 		}
 
 		.theme-button:hover {
@@ -2986,7 +2889,7 @@
 		.google-docs-input {
 			padding: 1rem;
 			border: 1px solid #ccc;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			display: flex;
 			flex-direction: column;
 			gap: 1rem;
@@ -3003,9 +2906,9 @@
 			font-size: 1rem;
 			cursor: pointer;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background: #fff;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 			flex-shrink: 0;
 			height: 100%;
 		}
@@ -3024,7 +2927,7 @@
 			padding: 0.75rem;
 			font-size: 1rem;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			font-family: Arial, sans-serif;
 		}
 
@@ -3129,7 +3032,7 @@
 
 		.sound-selector select {
 			padding: 0.4rem 0.6rem;
-			border-radius: 4px;
+			border-radius: var(--radius-sm);
 			border: 2px solid;
 			background: white;
 			font-size: 0.9rem;
@@ -3149,7 +3052,7 @@
 			align-items: center;
 			min-height: 500px;
 			padding: 2rem;
-			border-radius: 12px;
+			border-radius: var(--radius-lg);
 			background-color: rgba(224, 242, 255, 0.3) !important; /* Translucent light blue */
 			backdrop-filter: blur(10px);
 		}
@@ -3161,7 +3064,7 @@
 			z-index: 5;
 			background: rgba(255, 255, 255, 0.9);
 			padding: 0.5rem 0.75rem;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 		}
 
@@ -3194,7 +3097,7 @@
 		.spin-controls {
 			padding: 1rem;
 			border: 1px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background-color: rgba(224, 242, 255, 0.3); /* Translucent light blue */
 			backdrop-filter: blur(10px);
 		}
@@ -3221,9 +3124,9 @@
 			font-size: 1rem;
 			cursor: pointer;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background: #fff;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 			min-width: 50px;
 		}
 
@@ -3241,7 +3144,7 @@
 			padding: 0.5rem;
 			font-size: 1rem;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			text-align: center;
 			background: #fff;
 		}
@@ -3270,7 +3173,7 @@
 			transform: translateX(-50%);
 			z-index: 10;
 			padding: 0.5rem 1rem;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			border: 2px solid;
 			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 		}
@@ -3307,9 +3210,9 @@
 			font-size: 0.9rem;
 			cursor: pointer;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background: #fff;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 		}
 
 		.clear-history-btn:hover {
@@ -3325,8 +3228,8 @@
 		.history-item {
 			padding: 0.75rem;
 			border: 1px solid;
-			border-radius: 8px;
-			transition: all 0.2s;
+			border-radius: var(--radius-md);
+			transition: var(--transition-standard);
 		}
 
 		.history-item:hover {
@@ -3356,7 +3259,7 @@
 			cursor: pointer;
 			border: none;
 			border-radius: 6px;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 			white-space: nowrap;
 			flex-shrink: 0;
 		}
@@ -3498,24 +3401,6 @@
 			animation: slideOut 0.3s ease-out forwards;
 		}
 
-		@keyframes fadeIn {
-			from {
-				opacity: 0;
-			}
-			to {
-				opacity: 1;
-			}
-		}
-
-		@keyframes fadeOut {
-			from {
-				opacity: 1;
-			}
-			to {
-				opacity: 0;
-			}
-		}
-
 		@keyframes slideIn {
 			from {
 				transform: translateX(100%);
@@ -3563,10 +3448,10 @@
 		.button-group button {
 			padding: 0.5rem 1rem;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background: #fff;
 			cursor: pointer;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 		}
 
 		.button-group button:hover {
@@ -3584,7 +3469,7 @@
 			font-size: 1.1rem;
 			font-weight: bold;
 			border: 3px solid;
-			border-radius: 12px;
+			border-radius: var(--radius-lg);
 			background: #fff;
 			cursor: pointer;
 			transition: all 0.3s;
@@ -3619,7 +3504,7 @@
 			width: 60px;
 			height: 40px;
 			border: 2px solid;
-			border-radius: 4px;
+			border-radius: var(--radius-sm);
 			cursor: pointer;
 		}
 
@@ -3672,7 +3557,7 @@
 			width: 80px;
 			height: 40px;
 			border: 2px solid;
-			border-radius: 4px;
+			border-radius: var(--radius-sm);
 			cursor: pointer;
 			flex-shrink: 0;
 		}
@@ -3684,7 +3569,7 @@
 			margin-bottom: 1rem;
 			padding: 1rem;
 			border: 1px solid #ddd;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			background: #f9f9f9;
 		}
 
@@ -3699,7 +3584,7 @@
 			border-radius: 6px;
 			background: #fff;
 			cursor: pointer;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 			font-size: 0.9rem;
 		}
 
@@ -3714,7 +3599,7 @@
 			border-radius: 6px;
 			background: #fff;
 			cursor: pointer;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 			font-size: 1rem;
 		}
 
@@ -3739,7 +3624,7 @@
 			padding: 0.5rem;
 			margin-bottom: 0.5rem;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			font-family: Arial, sans-serif;
 		}
 
@@ -3785,7 +3670,7 @@
 			background-color: transparent;
 			font-size: 0.85rem;
 			cursor: pointer;
-			transition: all 0.2s ease;
+			transition: var(--transition-standard);
 		}
 
 		.remove-custom-btn:hover {
@@ -3814,9 +3699,9 @@
 			padding: 0.75rem 1.5rem;
 			font-size: 1rem;
 			border: 2px solid;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			cursor: pointer;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 		}
 
 		.save-button:hover {
@@ -3852,7 +3737,7 @@
 			left: 50%;
 			transform: translate(-50%, -50%);
 			background: white;
-			border-radius: 16px;
+			border-radius: var(--radius-xl);
 			border: 3px solid;
 			padding: 2rem;
 			max-width: 600px;
@@ -3896,7 +3781,7 @@
 
 		.result-item {
 			border: 2px solid;
-			border-radius: 12px;
+			border-radius: var(--radius-lg);
 			padding: 1.5rem;
 			animation: bounceIn 0.5s ease-out;
 		}
@@ -3917,10 +3802,10 @@
 
 		.letterboxd-btn {
 			padding: 0.75rem 1.5rem;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			font-size: 1rem;
 			cursor: pointer;
-			transition: all 0.2s;
+			transition: var(--transition-standard);
 			border: none;
 			white-space: nowrap;
 			flex-shrink: 0;
@@ -4151,7 +4036,7 @@
 			color: var(--secondary-color, #fff);
 			background: rgba(0,0,0,0.08);
 			padding: 0.35em 1em;
-			border-radius: 8px;
+			border-radius: var(--radius-md);
 			pointer-events: none;
 			opacity: 1;
 			animation: fadeItemNotif 2.2s ease-out forwards;
