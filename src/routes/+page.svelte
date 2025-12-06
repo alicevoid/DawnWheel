@@ -2126,7 +2126,7 @@
 	onMount(() => {
 		// Initialize audio instances (must be done client-side to avoid SSR issues)
 		loadWheelClickPool();
-		resultAudio = new Audio(resultSfx);
+		resultAudio = new Audio();  // Create empty audio element
 		loadResultSound();  // Load the selected result sound (default: alien)
 
 		// Initialize horror mode audio
@@ -2313,15 +2313,14 @@
 		}
 	});
 
-	// Watch for custom victory audio changes
+	// Watch for custom result audio changes
 	$effect(() => {
-		// Track customResultDataUrl to trigger reload
+		// Track customResultDataUrl to trigger reload when custom upload changes
 		customResultDataUrl;
 
-		if (resultAudio) {
-			// Reload victory audio with custom or default sound
-			resultAudio.src = customResultDataUrl || resultSfx;
-			resultAudio.load();
+		if (resultAudio && resultSound === 'custom') {
+			// Only reload if we're actually using the custom sound
+			loadResultSound();
 		}
 	});
 
