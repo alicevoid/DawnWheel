@@ -2256,7 +2256,6 @@
 
 <svelte:head>
 	<title>SlippyMudWheel :3</title>
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<link rel="icon" type="image/png" href={faviconImg} />
 </svelte:head>
 
